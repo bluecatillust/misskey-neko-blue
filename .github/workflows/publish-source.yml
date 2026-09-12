@@ -12,13 +12,13 @@ permissions:
 
 jobs:
   publish:
-    if: ${{ hashFiles('misskey-source.tar.zst') != '' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check out bootstrap files
         uses: actions/checkout@v4
 
       - name: Replace bootstrap files with the prepared source snapshot
+        if: ${{ hashFiles('misskey-source.tar.zst') != '' }}
         run: |
           set -euo pipefail
           mkdir -p /tmp/misskey-source /tmp/bootstrap-workflow
