@@ -1,0 +1,29 @@
+name: Publish prepared Misskey source
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out bootstrap files
+        uses: actions/checkout@v4
+
+      - name: Replace bootstrap files with the prepared source snapshot
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/misskey-source
+          tar --zstd -xf misskey-source.tar.zst -C /tmp/misskey-source
+          find . -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -a /tmp/misskey-source/. .
+          git config user.name "bluecatillust"
+          git config user.email "242743171+bluecatillust@users.noreply.github.com"
+          git add -A
+          git commit -m "Publish Misskey 2026.6.0 source with local changes"
+          git push origin HEAD:main
