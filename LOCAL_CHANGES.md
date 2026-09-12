@@ -32,6 +32,16 @@ When a displayed remote custom-emoji reaction has the same name as an emoji
 installed locally, clicking it sends the matching local emoji reaction. A
 remote reaction without a same-named local emoji remains unavailable.
 
+### React from matching emojis in remote note text
+
+File:
+`packages/frontend/src/components/global/MkMfm.ts`
+
+For a custom emoji displayed in the body of a remote note, the emoji menu now
+offers the existing reaction action when an emoji with the same name is
+installed locally. The reaction uses the local emoji; if no same-named local
+emoji exists, the action remains unavailable as before.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.6.0.
