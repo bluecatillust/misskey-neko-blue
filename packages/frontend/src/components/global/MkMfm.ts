@@ -21,6 +21,7 @@ import MkGoogle from '@/components/MkGoogle.vue';
 import MkSparkle from '@/components/MkSparkle.vue';
 import MkA from '@/components/global/MkA.vue';
 import { prefer } from '@/preferences.js';
+import { customEmojisMap } from '@/custom-emojis.js';
 
 function safeParseFloat(str: unknown): number | null {
 	if (typeof str !== 'string' || str === '') return null;
@@ -436,7 +437,7 @@ export default function (props: MfmProps, { emit }: { emit: SetupContext<MfmEven
 							host: props.author.host,
 							useOriginalSize: scale >= 2.5,
 							menu: props.enableEmojiMenu,
-							menuReaction: false,
+							menuReaction: props.enableEmojiMenuReaction && customEmojisMap.has(token.props.name),
 						})];
 					}
 				}
