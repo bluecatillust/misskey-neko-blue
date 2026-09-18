@@ -427,7 +427,7 @@ function fitEmojiItem(ev: Event): void {
 	if (item == null) return;
 
 	const aspectRatio = image.naturalWidth / image.naturalHeight;
-	const span = Math.min(4, Math.max(1, Math.round(aspectRatio)));
+	const span = Math.min(3, Math.max(1, Math.round(aspectRatio)));
 	item.style.setProperty('--emoji-span', String(span));
 }
 
