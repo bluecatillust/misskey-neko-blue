@@ -6,22 +6,23 @@ Misskey version used by `neko.blue`.
 ## Base version
 
 - Upstream project: <https://github.com/misskey-dev/misskey>
-- Misskey version: `2026.6.0`
-- Upstream commit: `2954dee1081e601b50b372d7a39e9be361a7c774`
+- Misskey version: `2026.9.0`
+- Upstream commit: `bd9eb7c77942ef11749a04e7a5f24bee935d764b`
 - License: GNU Affero General Public License v3.0 (`AGPL-3.0-only`)
 
 ## Local modifications
 
-### Respect the configured outgoing address family
+### Adapt the emoji picker to wide custom emojis
 
-File:
-`packages/backend/src/core/HttpRequestService.ts`
+Files:
 
-The HTTP and HTTPS agents now receive a Node.js `family` value derived from
-Misskey's `outgoingAddressFamily` setting. This makes `ipv4`, `ipv6`, and
-`dual` select family `4`, `6`, and `0` respectively, and fixes remote image
-fetching on hosts where the automatically selected address family is not
-usable.
+- `packages/frontend/src/components/MkEmojiPicker.vue`
+- `packages/frontend/src/components/MkEmojiPicker.section.vue`
+
+After a custom emoji image loads, the picker measures its aspect ratio and
+uses between one and four grid columns. Wide emoji artwork is therefore shown
+at a readable width instead of being reduced to a square cell. Items that do
+not fit at the end of a row flow to the next row.
 
 ### Reuse a matching local emoji for a remote reaction
 
@@ -37,14 +38,25 @@ remote reaction without a same-named local emoji remains unavailable.
 File:
 `packages/frontend/src/components/global/MkMfm.ts`
 
-For a custom emoji displayed in the body of a remote note, the emoji menu now
+For a custom emoji displayed in the body of a remote note, the emoji menu
 offers the existing reaction action when an emoji with the same name is
 installed locally. The reaction uses the local emoji; if no same-named local
 emoji exists, the action remains unavailable as before.
 
+### Respect the configured outgoing address family
+
+File:
+`packages/backend/src/core/HttpRequestService.ts`
+
+The HTTP and HTTPS agents receive a Node.js `family` value derived from
+Misskey's `outgoingAddressFamily` setting. This makes `ipv4`, `ipv6`, and
+`dual` select family `4`, `6`, and `0` respectively, and improves remote image
+fetching on hosts where the automatically selected address family is not
+usable.
+
 ## Build and configuration
 
-Follow the upstream installation and build instructions for Misskey 2026.6.0.
+Follow the upstream installation and build instructions for Misskey 2026.9.0.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
 credentials, uploaded files, and database contents must remain private.

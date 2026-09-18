@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			@pointerenter="computeButtonTitle"
 			@click="emit('chosen', emoji, $event)"
 		>
-			<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true" :fallbackToImage="true"/>
+			<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true" :fallbackToImage="true" @load="fitEmojiItem"/>
 			<MkEmoji v-else class="emoji" :emoji="emoji" :normal="true"/>
 		</button>
 	</div>
@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			@pointerenter="computeButtonTitle"
 			@click="emit('chosen', emoji, $event)"
 		>
-			<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true"/>
+			<MkCustomEmoji v-if="emoji[0] === ':'" class="emoji" :name="emoji" :normal="true" @load="fitEmojiItem"/>
 			<MkEmoji v-else class="emoji" :emoji="emoji" :normal="true"/>
 		</button>
 	</div>
@@ -90,6 +90,19 @@ function computeButtonTitle(ev: PointerEvent): void {
 	const elm = ev.target as HTMLElement;
 	const emoji = elm.dataset.emoji as string;
 	elm.title = getEmojiName(emoji);
+}
+
+function fitEmojiItem(ev: Event): void {
+	const image = ev.target;
+	if (!(image instanceof HTMLImageElement)) return;
+	if (image.naturalWidth === 0 || image.naturalHeight === 0) return;
+
+	const item = image.closest<HTMLElement>('.item');
+	if (item == null) return;
+
+	const aspectRatio = image.naturalWidth / image.naturalHeight;
+	const span = Math.min(4, Math.max(1, Math.round(aspectRatio)));
+	item.style.setProperty('--emoji-span', String(span));
 }
 
 function nestedChosen(emoji: string, ev: PointerEvent) {

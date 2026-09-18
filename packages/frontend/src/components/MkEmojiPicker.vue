@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					tabindex="0"
 					@click="chosen(emoji, $event)"
 				>
-					<MkCustomEmoji class="emoji" :name="emoji.name" :fallbackToImage="true"/>
+					<MkCustomEmoji class="emoji" :name="emoji.name" :fallbackToImage="true" @load="fitEmojiItem"/>
 				</button>
 			</div>
 			<div v-if="searchResultUnicode.length > 0" class="body">
@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 						@pointerenter="computeButtonTitle"
 						@click="chosen(emoji, $event)"
 					>
-						<MkCustomEmoji v-if="!emoji.hasOwnProperty('char')" class="emoji" :name="getKey(emoji)" :normal="true"/>
+						<MkCustomEmoji v-if="!emoji.hasOwnProperty('char')" class="emoji" :name="getKey(emoji)" :normal="true" @load="fitEmojiItem"/>
 						<MkEmoji v-else class="emoji" :emoji="getKey(emoji)" :normal="true"/>
 					</button>
 					<button v-tooltip="i18n.ts.settings" class="_button config" @click="settings"><i class="ti ti-settings"></i></button>
@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 						@pointerenter="computeButtonTitle"
 						@click="chosen(emoji, $event)"
 					>
-						<MkCustomEmoji v-if="!emoji.hasOwnProperty('char')" class="emoji" :name="getKey(emoji)" :normal="true"/>
+						<MkCustomEmoji v-if="!emoji.hasOwnProperty('char')" class="emoji" :name="getKey(emoji)" :normal="true" @load="fitEmojiItem"/>
 						<MkEmoji v-else class="emoji" :emoji="getKey(emoji)" :normal="true"/>
 					</button>
 				</div>
@@ -418,6 +418,19 @@ function computeButtonTitle(ev: PointerEvent): void {
 	elm.title = getEmojiName(emoji);
 }
 
+function fitEmojiItem(ev: Event): void {
+	const image = ev.target;
+	if (!(image instanceof HTMLImageElement)) return;
+	if (image.naturalWidth === 0 || image.naturalHeight === 0) return;
+
+	const item = image.closest<HTMLElement>('.item');
+	if (item == null) return;
+
+	const aspectRatio = image.naturalWidth / image.naturalHeight;
+	const span = Math.min(4, Math.max(1, Math.round(aspectRatio)));
+	item.style.setProperty('--emoji-span', String(span));
+}
+
 function chosen(emoji: string | Misskey.entities.EmojiSimple | UnicodeEmojiDef, ev?: PointerEvent) {
 	const el = ev && (ev.currentTarget ?? ev.target) as HTMLElement | null | undefined;
 	if (el && prefer.s.animation) {
@@ -603,7 +616,8 @@ defineExpose({
 					}
 
 					> .item {
-						aspect-ratio: 1 / 1;
+						grid-column: span var(--emoji-span, 1);
+						aspect-ratio: var(--emoji-span, 1) / 1;
 						width: auto;
 						height: auto;
 						min-width: 0;
@@ -637,7 +651,8 @@ defineExpose({
 					font-size: 30px;
 
 					> .item {
-						aspect-ratio: 1 / 1;
+						grid-column: span var(--emoji-span, 1);
+						aspect-ratio: var(--emoji-span, 1) / 1;
 						width: auto;
 						height: auto;
 						min-width: 0;
@@ -753,7 +768,7 @@ defineExpose({
 				> .item {
 					position: relative;
 					padding: 0 3px;
-					width: var(--eachSize);
+					width: calc(var(--eachSize) * var(--emoji-span, 1));
 					height: var(--eachSize);
 					contain: strict;
 					border-radius: 4px;

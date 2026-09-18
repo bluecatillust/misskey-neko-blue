@@ -1,5 +1,5 @@
 > [!NOTE]
-> This repository contains the Misskey 2026.6.0 source used for the
+> This repository contains the Misskey 2026.9.0 source used for the
 > `neko.blue` instance, including local modifications. See
 > [LOCAL_CHANGES.md](./LOCAL_CHANGES.md) for the exact changes and upstream
 > reference.
