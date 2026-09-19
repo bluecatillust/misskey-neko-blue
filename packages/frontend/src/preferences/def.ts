@@ -309,6 +309,9 @@ export const PREF_DEF = definePreferences({
 	limitWidthOfReaction: {
 		default: true,
 	},
+	reactionMaxWidth: {
+		default: 70 as 70 | 140 | 210 | 280,
+	},
 	forceShowAds: {
 		default: false,
 	},
