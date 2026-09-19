@@ -12,7 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 	@click="toggleReaction()"
 	@contextmenu.prevent.stop="menu"
 >
-	<MkReactionIcon style="pointer-events: none;" :class="prefer.s.limitWidthOfReaction ? $style.limitWidth : ''" :reaction="reaction" :emojiUrl="reactionEmojis[emojiName]"/>
+
+	<MkReactionIcon style="pointer-events: none;" :class="prefer.s.limitWidthOfReaction ? $style.limitWidth : ''" :style="prefer.s.limitWidthOfReaction ? { maxWidth: `${prefer.s.reactionMaxWidth}px` } : undefined" :reaction="reaction" :emojiUrl="reactionEmojis[emojiName]"/>
 	<span :class="$style.count">{{ count }}</span>
 </button>
 </template>
@@ -346,7 +347,7 @@ if (!mock) {
 }
 
 .limitWidth {
-	max-width: 70px;
+
 	object-fit: contain;
 }
 
