@@ -20,7 +20,7 @@ Files:
 - `packages/frontend/src/components/MkEmojiPicker.section.vue`
 
 After a custom emoji image loads, the picker measures its aspect ratio and
-uses between one and four grid columns. Wide emoji artwork is therefore shown
+uses between one and three grid columns. Wide emoji artwork is therefore shown
 at a readable width instead of being reduced to a square cell. Items that do
 not fit at the end of a row flow to the next row.
 
@@ -53,6 +53,21 @@ Misskey's `outgoingAddressFamily` setting. This makes `ipv4`, `ipv6`, and
 `dual` select family `4`, `6`, and `0` respectively, and improves remote image
 fetching on hosts where the automatically selected address family is not
 usable.
+
+### Configure the maximum reaction image width
+
+Files:
+
+- `locales/ja-JP.yml`
+- `locales/en-US.yml`
+- `packages/frontend/src/preferences/def.ts`
+- `packages/frontend/src/pages/settings/preferences.vue`
+- `packages/frontend/src/components/MkReactionsViewer.reaction.vue`
+
+When reaction-width limiting is enabled, users can choose a maximum image
+width of 70, 140, 210, or 280 pixels. The default remains 70 pixels to preserve
+the previous behavior. Images smaller than the selected limit are not enlarged.
+
 
 ## Build and configuration
 
