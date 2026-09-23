@@ -68,6 +68,16 @@ When reaction-width limiting is enabled, users can choose a maximum image
 width of 70, 140, 210, or 280 pixels. The default remains 70 pixels to preserve
 the previous behavior. Images smaller than the selected limit are not enlarged.
 
+### Require login to reveal sensitive media
+
+Files:
+
+- `packages/frontend/src/utility/sensitive-file.ts`
+- `packages/frontend/src/components/MkMediaImage.vue`
+
+Guests who click media marked as sensitive are shown the sign-in dialog instead
+of having the media revealed. Sensitive image links and image source loading are
+also disabled while signed out.
 
 ## Build and configuration
 
