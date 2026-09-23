@@ -7,8 +7,14 @@ import * as Misskey from 'misskey-js';
 import * as os from '@/os.js';
 import { prefer } from '@/preferences.js';
 import { i18n } from '@/i18n.js';
+import { $i } from '@/i.js';
+import { pleaseLogin } from '@/utility/please-login.js';
 
 export function shouldHideFileByDefault(file: Misskey.entities.DriveFile, ignoreDataSaver = false): boolean {
+	if (file.isSensitive && $i == null) {
+		return true;
+	}
+
 	if (prefer.s.nsfw === 'force' || (!ignoreDataSaver && prefer.s.dataSaver.media)) {
 		return true;
 	}
@@ -21,6 +27,11 @@ export function shouldHideFileByDefault(file: Misskey.entities.DriveFile, ignore
 }
 
 export async function canRevealFile(file: Misskey.entities.DriveFile): Promise<boolean> {
+	if (file.isSensitive && $i == null) {
+		await pleaseLogin();
+		return false;
+	}
+
 	if (file.isSensitive && prefer.s.confirmWhenRevealingSensitiveMedia) {
 		const { canceled } = await os.confirm({
 			type: 'question',
