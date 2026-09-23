@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 <template>
 <div :class="[hide ? $style.hidden : $style.visible, (image.isSensitive && prefer.s.highlightSensitiveMedia) && $style.sensitive]" @click="onClick" @contextmenu.stop="onContextmenu">
 	<component
-		:is="disableImageLink ? 'div' : 'a'"
-		v-bind="disableImageLink ? {
+		:is="(image.isSensitive && $i == null) || disableImageLink ? 'div' : 'a'"
+		v-bind="(image.isSensitive && $i == null) || disableImageLink ? {
 			title: image.name,
 			class: $style.imageContainer,
 		} : {
@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 		<MkImgWithBlurhash
 			v-if="prefer.s.enableHighQualityImagePlaceholders"
 			:hash="image.blurhash"
-			:src="(prefer.s.dataSaver.media && hide) ? null : url"
+			:src="(image.isSensitive && $i == null) || (prefer.s.dataSaver.media && hide) ? null : url"
 			:forceBlurhash="hide"
 			:cover="hide || cover"
 			:alt="image.comment || image.name"
@@ -79,6 +79,7 @@ import * as os from '@/os.js';
 import { prefer } from '@/preferences.js';
 import { shouldHideFileByDefault, canRevealFile } from '@/utility/sensitive-file.js';
 import { getFileMenu } from '@/utility/get-file-menu.js';
+import { $i } from '@/i.js';
 
 const props = withDefaults(defineProps<{
 	image: Misskey.entities.DriveFile;
