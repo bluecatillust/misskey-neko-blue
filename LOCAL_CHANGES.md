@@ -79,6 +79,26 @@ Guests who click media marked as sensitive are shown the sign-in dialog instead
 of having the media revealed. Sensitive image links and image source loading are
 also disabled while signed out.
 
+### Allow up to five reactions per note
+
+Main files:
+
+- `packages/backend/migration/1790352000000-MultipleNoteReactions.js`
+- `packages/backend/src/core/ReactionService.ts`
+- `packages/backend/src/core/entities/NoteEntityService.ts`
+- `packages/backend/src/models/NoteReaction.ts`
+- `packages/backend/src/server/api/endpoints/notes/reactions/`
+- `packages/frontend/src/components/MkReactionsViewer.vue`
+- `packages/frontend/src/components/MkReactionsViewer.reaction.vue`
+- `packages/frontend/src/composables/use-note.ts`
+- `packages/frontend/src/composables/use-note-capture.ts`
+
+Local users can attach up to five different reactions to the same note. Each
+reaction can be added or removed independently, while duplicate use of the same
+emoji by one user on one note remains disallowed. The note API and streaming
+payloads expose all reactions selected by the current user, and retain the
+single-reaction field for compatibility with older clients.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.9.0.
