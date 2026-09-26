@@ -38,14 +38,19 @@ import { focusParent } from '@/utility/focus.js';
 export const openingWindowsCount = ref(0);
 
 export type ApiWithDialogCustomErrors = Record<string, { title?: string; text: string; }>;
+export type ApiWithDialogOptions = {
+	showSuccess?: boolean;
+	showWaiting?: boolean;
+};
 export const apiWithDialog = (<E extends keyof Misskey.Endpoints>(
 	endpoint: E,
 	data: Misskey.Endpoints[E]['req'],
 	token?: string | null | undefined,
 	customErrors?: ApiWithDialogCustomErrors,
+	options?: ApiWithDialogOptions,
 ) => {
 	const promise = misskeyApi(endpoint, data, token);
-	promiseDialog(promise, null, async (err) => {
+	const onFailure = async (err: Misskey.api.APIError) => {
 		let title: string | undefined;
 		let text = err.message + '\n' + err.id;
 		if (err.code === 'INTERNAL_ERROR') {
@@ -93,7 +98,12 @@ export const apiWithDialog = (<E extends keyof Misskey.Endpoints>(
 			title,
 			text,
 		});
-	});
+	};
+	if (options?.showWaiting === false) {
+		promise.catch(onFailure);
+	} else {
+		promiseDialog(promise, options?.showSuccess === false ? () => {} : null, onFailure);
+	}
 
 	return promise;
 });

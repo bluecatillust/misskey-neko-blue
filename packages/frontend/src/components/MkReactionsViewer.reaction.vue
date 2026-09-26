@@ -130,7 +130,7 @@ async function toggleReaction() {
 		os.apiWithDialog('notes/reactions/delete', {
 			noteId: props.noteId,
 			reaction: reactionToDelete,
-		}).then(() => {
+		}, undefined, undefined, { showWaiting: false }).then(() => {
 			noteEvents.emit(`unreacted:${props.noteId}`, {
 				userId: me.id,
 				reaction: reactionToDelete,
@@ -157,7 +157,7 @@ async function toggleReaction() {
 		os.apiWithDialog('notes/reactions/create', {
 			noteId: props.noteId,
 			reaction: targetReaction,
-		}).then(() => {
+		}, undefined, undefined, { showWaiting: false }).then(() => {
 			const emoji = customEmojisMap.get(targetEmojiName);
 			if (emoji == null && getUnicodeEmojiOrNull(targetReaction) == null) {
 				return;

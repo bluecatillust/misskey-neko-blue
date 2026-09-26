@@ -284,7 +284,7 @@ export function useNote(
 			os.apiWithDialog('notes/reactions/create', {
 				noteId: appearNote.id,
 				reaction: reactionToUse,
-			}).then(() => {
+			}, undefined, undefined, { showWaiting: false }).then(() => {
 				noteEvents.emit(`reacted:${appearNote.id}`, { userId: $i!.id, reaction: reactionToUse });
 			});
 			if (appearNote.text && appearNote.text.length > 100 && (Date.now() - new Date(appearNote.createdAt).getTime() < 1000 * 3)) {
@@ -302,7 +302,7 @@ export function useNote(
 		os.apiWithDialog('notes/reactions/create', {
 			noteId: appearNote.id,
 			reaction: reaction,
-		}).then(() => {
+		}, undefined, undefined, { showWaiting: false }).then(() => {
 			noteEvents.emit(`reacted:${appearNote.id}`, {
 				userId: $i!.id,
 				reaction: reaction,
@@ -314,7 +314,7 @@ export function useNote(
 		const oldReaction = reaction ?? $appearNote.myReaction;
 		if (!oldReaction) return;
 		if (props.mock) return;
-		os.apiWithDialog('notes/reactions/delete', { noteId: appearNote.id, reaction: oldReaction }).then(() => {
+		os.apiWithDialog('notes/reactions/delete', { noteId: appearNote.id, reaction: oldReaction }, undefined, undefined, { showWaiting: false }).then(() => {
 			noteEvents.emit(`unreacted:${appearNote.id}`, { userId: $i!.id, reaction: oldReaction });
 		});
 	}
