@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 		:isInitial="initialReactions.has(reaction)"
 		:noteId="props.noteId"
 		:myReaction="props.myReaction"
+		:myReactions="props.myReactions"
 		@reactionToggled="onMockToggleReaction"
 	/>
 	<slot v-if="hasMoreReactions" name="more"></slot>
@@ -45,6 +46,7 @@ const props = withDefaults(defineProps<{
 	reactions: Misskey.entities.Note['reactions'];
 	reactionEmojis: Misskey.entities.Note['reactionEmojis'];
 	myReaction: Misskey.entities.Note['myReaction'];
+	myReactions?: Misskey.entities.Note['myReactions'];
 	maxNumber?: number;
 }>(), {
 	maxNumber: Infinity,
@@ -61,8 +63,10 @@ const initialReactions = new Set(Object.keys(props.reactions));
 const _reactions = ref<[string, number][]>([]);
 const hasMoreReactions = ref(false);
 
-if (props.myReaction != null && !(props.myReaction in props.reactions)) {
-	_reactions.value.push([props.myReaction, props.reactions[props.myReaction]]);
+for (const reaction of props.myReactions ?? (props.myReaction ? [props.myReaction] : [])) {
+	if (!(reaction in props.reactions)) {
+		_reactions.value.push([reaction, props.reactions[reaction]]);
+	}
 }
 
 function onMockToggleReaction(emoji: string, count: number) {
@@ -82,7 +86,7 @@ function canReact(reaction: string) {
 		: isSupportedEmoji(reaction);
 }
 
-watch([() => props.reactions, () => props.maxNumber], ([newSource, maxNumber]) => {
+watch([() => props.reactions, () => props.maxNumber, () => props.myReactions], ([newSource, maxNumber]) => {
 	let newReactions: [string, number][] = [];
 	hasMoreReactions.value = Object.keys(newSource).length > maxNumber;
 
@@ -119,8 +123,10 @@ watch([() => props.reactions, () => props.maxNumber], ([newSource, maxNumber]) =
 
 	newReactions = newReactions.slice(0, props.maxNumber);
 
-	if (props.myReaction && !newReactions.some(([x]) => x === props.myReaction)) {
-		newReactions.push([props.myReaction, newSource[props.myReaction]]);
+	for (const reaction of props.myReactions ?? (props.myReaction ? [props.myReaction] : [])) {
+		if (!newReactions.some(([x]) => x === reaction)) {
+			newReactions.push([reaction, newSource[reaction]]);
+		}
 	}
 
 	_reactions.value = newReactions;

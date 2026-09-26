@@ -150,6 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					:reactions="$appearNote.reactions"
 					:reactionEmojis="$appearNote.reactionEmojis"
 					:myReaction="$appearNote.myReaction"
+					:myReactions="$appearNote.myReactions"
 					:noteId="appearNote.id"
 				/>
 				<button class="_button" :class="$style.noteFooterButton" @click="reply()">
@@ -169,9 +170,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<button v-else class="_button" :class="$style.noteFooterButton" disabled>
 					<i class="ti ti-ban"></i>
 				</button>
-				<button ref="reactButton" :class="$style.noteFooterButton" class="_button" @click="toggleReact()">
+				<button ref="reactButton" :class="$style.noteFooterButton" class="_button" @click="react()">
 					<i v-if="appearNote.reactionAcceptance === 'likeOnly' && $appearNote.myReaction != null" class="ti ti-heart-filled" style="color: var(--MI_THEME-love);"></i>
-					<i v-else-if="$appearNote.myReaction != null" class="ti ti-minus" style="color: var(--MI_THEME-accent);"></i>
 					<i v-else-if="appearNote.reactionAcceptance === 'likeOnly'" class="ti ti-heart"></i>
 					<i v-else class="ti ti-plus"></i>
 					<p v-if="(appearNote.reactionAcceptance === 'likeOnly' || prefer.s.showReactionsCount) && $appearNote.reactionCount > 0" :class="$style.noteFooterButtonCount">{{ number($appearNote.reactionCount) }}</p>
@@ -309,7 +309,6 @@ const {
 	reply,
 	react,
 	reactViaMfmEmoji,
-	toggleReact,
 	onContextmenu,
 	showMenu,
 	clip,

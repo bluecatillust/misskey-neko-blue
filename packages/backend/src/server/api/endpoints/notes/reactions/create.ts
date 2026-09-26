@@ -31,6 +31,12 @@ export const meta = {
 			id: '71efcf98-86d6-4e2b-b2ad-9d032369366b',
 		},
 
+		tooManyReactions: {
+			message: 'You cannot add more than 5 reactions to one note.',
+			code: 'TOO_MANY_REACTIONS',
+			id: '8339052f-12d1-43ca-b4f3-143e160f9560',
+		},
+
 		youHaveBeenBlocked: {
 			message: 'You cannot react this note because you have been blocked by this user.',
 			code: 'YOU_HAVE_BEEN_BLOCKED',
@@ -67,6 +73,7 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 			});
 			await this.reactionService.create(me, note, ps.reaction).catch(err => {
 				if (err.id === '51c42bb4-931a-456b-bff7-e5a8a70dd298') throw new ApiError(meta.errors.alreadyReacted);
+				if (err.id === '86f9f524-7c02-46a3-9b6a-3f607d0ec1a8') throw new ApiError(meta.errors.tooManyReactions);
 				if (err.id === 'e70412a4-7197-4726-8e74-f3e0deb92aa7') throw new ApiError(meta.errors.youHaveBeenBlocked);
 				if (err.id === '12c35529-3c79-4327-b1cc-e2cf63a71925') throw new ApiError(meta.errors.cannotReactToRenote);
 				throw err;

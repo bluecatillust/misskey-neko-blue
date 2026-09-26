@@ -4,13 +4,14 @@
  */
 
 import { Inject, Injectable } from '@nestjs/common';
+import { DataSource, type EntityManager, type Repository } from 'typeorm';
 import { DI } from '@/di-symbols.js';
-import type { EmojisRepository, NoteReactionsRepository, UsersRepository, NotesRepository, MiMeta } from '@/models/_.js';
+import type { EmojisRepository, NoteReactionsRepository, UsersRepository, MiMeta } from '@/models/_.js';
 import { IdentifiableError } from '@/misc/identifiable-error.js';
 import type { MiRemoteUser, MiUser } from '@/models/User.js';
-import type { MiNote } from '@/models/Note.js';
+import { MiNote } from '@/models/Note.js';
 import { IdService } from '@/core/IdService.js';
-import type { MiNoteReaction } from '@/models/NoteReaction.js';
+import { MiNoteReaction } from '@/models/NoteReaction.js';
 import { isDuplicateKeyValueError } from '@/misc/is-duplicate-key-value-error.js';
 import { GlobalEventService } from '@/core/GlobalEventService.js';
 import { NotificationService } from '@/core/NotificationService.js';
@@ -32,6 +33,7 @@ import { ReactionsBufferingService } from '@/core/ReactionsBufferingService.js';
 import { PER_NOTE_REACTION_USER_PAIR_CACHE_MAX } from '@/const.js';
 
 const FALLBACK = '\u2764';
+const MAX_REACTIONS_PER_LOCAL_USER_PER_NOTE = 5;
 
 const legacies: Record<string, string> = {
 	'like': '👍',
@@ -70,14 +72,14 @@ const decodeCustomEmojiRegexp = /^:([\w+-]+)(?:@([\w.-]+))?:$/;
 @Injectable()
 export class ReactionService {
 	constructor(
+		@Inject(DI.db)
+		private db: DataSource,
+
 		@Inject(DI.meta)
 		private meta: MiMeta,
 
 		@Inject(DI.usersRepository)
 		private usersRepository: UsersRepository,
-
-		@Inject(DI.notesRepository)
-		private notesRepository: NotesRepository,
 
 		@Inject(DI.noteReactionsRepository)
 		private noteReactionsRepository: NoteReactionsRepository,
@@ -170,45 +172,139 @@ export class ReactionService {
 			userId: user.id,
 			reaction,
 		};
+		const publishCreated = await this.prepareReactionCreatedPublisher(user, note, reaction);
 
-		try {
-			await this.noteReactionsRepository.insert(record);
-		} catch (e) {
-			if (isDuplicateKeyValueError(e)) {
-				const exists = await this.noteReactionsRepository.findOneByOrFail({
+		const insertReaction = async (repository: Repository<MiNoteReaction>) => {
+			try {
+				await repository.insert(record);
+			} catch (e) {
+				if (isDuplicateKeyValueError(e)) {
+					// 同じリアクションが同時に追加された場合も重複として扱う。
+					throw new IdentifiableError('51c42bb4-931a-456b-bff7-e5a8a70dd298');
+				}
+				throw e;
+			}
+		};
+
+		if (user.host == null) {
+			// 同じユーザーによる同じ投稿への同時操作を直列化し、5個の上限を確実に守る。
+			await this.withReactionLock(user.id, note.id, async transactionalEntityManager => {
+				const repository = transactionalEntityManager.getRepository(MiNoteReaction);
+				const existingReactions = await repository.findBy({
 					noteId: note.id,
 					userId: user.id,
 				});
-
-				if (exists.reaction !== reaction) {
-					// 別のリアクションがすでにされていたら置き換える
-					await this.delete(user, note);
-					await this.noteReactionsRepository.insert(record);
-				} else {
-					// 同じリアクションがすでにされていたらエラー
+				if (existingReactions.some(existing => existing.reaction === reaction)) {
 					throw new IdentifiableError('51c42bb4-931a-456b-bff7-e5a8a70dd298');
 				}
-			} else {
-				throw e;
-			}
-		}
-
-		// Increment reactions count
-		if (this.meta.enableReactionsBuffering) {
-			await this.reactionsBufferingService.create(note.id, user.id, reaction, note.reactionAndUserPairCache);
+				if (existingReactions.length >= MAX_REACTIONS_PER_LOCAL_USER_PER_NOTE) {
+					throw new IdentifiableError('86f9f524-7c02-46a3-9b6a-3f607d0ec1a8');
+				}
+				await insertReaction(repository);
+				await this.updateAggregatesForCreate(user, note, reaction, transactionalEntityManager.getRepository(MiNote));
+				return { value: undefined, afterCommit: publishCreated };
+			});
 		} else {
-			const sql = `jsonb_set("reactions", '{${reaction}}', (COALESCE("reactions"->>'${reaction}', '0')::int + 1)::text::jsonb)`;
-			await this.notesRepository.createQueryBuilder().update()
-				.set({
-					reactions: () => sql,
-					...(note.reactionAndUserPairCache.length < PER_NOTE_REACTION_USER_PAIR_CACHE_MAX ? {
-						reactionAndUserPairCache: () => `array_append("reactionAndUserPairCache", '${user.id}/${reaction}')`,
-					} : {}),
-				})
-				.where('id = :id', { id: note.id })
-				.execute();
+			const replacedReaction = await this.withReactionLock(user.id, note.id, async transactionalEntityManager => {
+				const repository = transactionalEntityManager.getRepository(MiNoteReaction);
+				const notesRepository = transactionalEntityManager.getRepository(MiNote);
+				const existingReaction = await repository.findOne({
+					where: {
+						noteId: note.id,
+						userId: user.id,
+					},
+					order: {
+						id: 'DESC',
+					},
+				});
+				if (existingReaction?.reaction === reaction) {
+					throw new IdentifiableError('51c42bb4-931a-456b-bff7-e5a8a70dd298');
+				}
+				if (existingReaction != null) {
+					await repository.delete(existingReaction.id);
+					await this.updateAggregatesForDelete(user, note, existingReaction, notesRepository);
+				}
+				await insertReaction(repository);
+				await this.updateAggregatesForCreate(user, note, reaction, notesRepository);
+				return {
+					value: existingReaction,
+					afterCommit: () => {
+						if (existingReaction != null) this.publishReactionDeleted(user, note, existingReaction);
+						publishCreated();
+					},
+				};
+			});
+			if (replacedReaction != null) {
+				// リモートユーザーは従来どおり、投稿ごとに1つのリアクションへ置き換える。
+				await this.finishDelete(user, note, replacedReaction);
+			}
+			await this.finishCreate(user, note, reaction, record);
+			return;
 		}
 
+		await this.finishCreate(user, note, reaction, record);
+	}
+
+	@bindThis
+	private async withReactionLock<T>(userId: MiUser['id'], noteId: MiNote['id'], operation: (entityManager: EntityManager) => Promise<{ value: T; afterCommit: () => void }>): Promise<T> {
+		const queryRunner = this.db.createQueryRunner();
+		await queryRunner.connect();
+		let locked = false;
+		try {
+			await queryRunner.query('SELECT pg_advisory_lock(hashtext($1), hashtext($2))', [userId, noteId]);
+			locked = true;
+			await queryRunner.startTransaction();
+			let completed: { value: T; afterCommit: () => void };
+			try {
+				completed = await operation(queryRunner.manager);
+				await queryRunner.commitTransaction();
+			} catch (error) {
+				await queryRunner.rollbackTransaction();
+				throw error;
+			}
+			completed.afterCommit();
+			return completed.value;
+		} finally {
+			if (locked) await queryRunner.query('SELECT pg_advisory_unlock(hashtext($1), hashtext($2))', [userId, noteId]).catch(() => undefined);
+			await queryRunner.release();
+		}
+	}
+
+	@bindThis
+	private async prepareReactionCreatedPublisher(user: { id: MiUser['id'] }, note: MiNote, reaction: string): Promise<() => void> {
+		const decodedReaction = this.decodeReaction(reaction);
+		const customEmoji = decodedReaction.name == null ? null : decodedReaction.host == null
+			? (await this.customEmojiService.localEmojisCache.fetch()).get(decodedReaction.name)
+			: await this.emojisRepository.findOne({
+				where: {
+					name: decodedReaction.name,
+					host: decodedReaction.host,
+				},
+			});
+
+		return () => {
+			this.globalEventService.publishNoteStream(note, 'reacted', {
+				reaction: decodedReaction.reaction,
+				emoji: customEmoji != null ? {
+					name: customEmoji.host ? `${customEmoji.name}@${customEmoji.host}` : `${customEmoji.name}@.`,
+					// || emoji.originalUrl してるのは後方互換性のため（publicUrlはstringなので??はだめ）
+					url: customEmoji.publicUrl || customEmoji.originalUrl,
+				} : null,
+				userId: user.id,
+			});
+		};
+	}
+
+	@bindThis
+	private publishReactionDeleted(user: { id: MiUser['id'] }, note: MiNote, reaction: MiNoteReaction): void {
+		this.globalEventService.publishNoteStream(note, 'unreacted', {
+			reaction: this.decodeReaction(reaction.reaction).reaction,
+			userId: user.id,
+		});
+	}
+
+	@bindThis
+	private async finishCreate(user: { id: MiUser['id']; host: MiUser['host']; isBot: MiUser['isBot'] }, note: MiNote, reaction: string, record: MiNoteReaction) {
 		// 30%の確率、セルフではない、3日以内に投稿されたノートの場合ハイライト用ランキング更新
 		if (
 			Math.random() < 0.3 &&
@@ -230,29 +326,6 @@ export class ReactionService {
 		if (this.meta.enableChartsForRemoteUser || (user.host == null)) {
 			this.perUserReactionsChart.update(user, note);
 		}
-
-		// カスタム絵文字リアクションだったら絵文字情報も送る
-		const decodedReaction = this.decodeReaction(reaction);
-
-		const customEmoji = decodedReaction.name == null ? null : decodedReaction.host == null
-			? (await this.customEmojiService.localEmojisCache.fetch()).get(decodedReaction.name)
-			: await this.emojisRepository.findOne(
-				{
-					where: {
-						name: decodedReaction.name,
-						host: decodedReaction.host,
-					},
-				});
-
-		this.globalEventService.publishNoteStream(note, 'reacted', {
-			reaction: decodedReaction.reaction,
-			emoji: customEmoji != null ? {
-				name: customEmoji.host ? `${customEmoji.name}@${customEmoji.host}` : `${customEmoji.name}@.`,
-				// || emoji.originalUrl してるのは後方互換性のため（publicUrlはstringなので??はだめ）
-				url: customEmoji.publicUrl || customEmoji.originalUrl,
-			} : null,
-			userId: user.id,
-		});
 
 		// リアクションされたユーザーがローカルユーザーなら通知を作成
 		if (note.userHost === null) {
@@ -286,43 +359,66 @@ export class ReactionService {
 	}
 
 	@bindThis
-	public async delete(user: { id: MiUser['id']; host: MiUser['host']; isBot: MiUser['isBot']; }, note: MiNote) {
-		// if already unreacted
-		const exist = await this.noteReactionsRepository.findOneBy({
-			noteId: note.id,
-			userId: user.id,
-		});
-
-		if (exist == null) {
-			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
-		}
-
-		// Delete reaction
-		const result = await this.noteReactionsRepository.delete(exist.id);
-
-		if (result.affected !== 1) {
-			throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
-		}
-
-		// Decrement reactions count
+	private async updateAggregatesForCreate(user: { id: MiUser['id'] }, note: MiNote, reaction: string, notesRepository: Repository<MiNote>) {
+		// Increment reactions count
 		if (this.meta.enableReactionsBuffering) {
-			await this.reactionsBufferingService.delete(note.id, user.id, exist.reaction);
+			await this.reactionsBufferingService.create(note.id, user.id, reaction, note.reactionAndUserPairCache);
 		} else {
-			const sql = `jsonb_set("reactions", '{${exist.reaction}}', (COALESCE("reactions"->>'${exist.reaction}', '0')::int - 1)::text::jsonb)`;
-			await this.notesRepository.createQueryBuilder().update()
+			const sql = `jsonb_set("reactions", '{${reaction}}', (COALESCE("reactions"->>'${reaction}', '0')::int + 1)::text::jsonb)`;
+			await notesRepository.createQueryBuilder().update()
 				.set({
 					reactions: () => sql,
-					reactionAndUserPairCache: () => `array_remove("reactionAndUserPairCache", '${user.id}/${exist.reaction}')`,
+					...(note.reactionAndUserPairCache.length < PER_NOTE_REACTION_USER_PAIR_CACHE_MAX ? {
+						reactionAndUserPairCache: () => `array_append("reactionAndUserPairCache", '${user.id}/${reaction}')`,
+					} : {}),
 				})
 				.where('id = :id', { id: note.id })
 				.execute();
 		}
+	}
 
-		this.globalEventService.publishNoteStream(note, 'unreacted', {
-			reaction: this.decodeReaction(exist.reaction).reaction,
-			userId: user.id,
+	@bindThis
+	public async delete(user: { id: MiUser['id']; host: MiUser['host']; isBot: MiUser['isBot']; }, note: MiNote, reaction?: string) {
+		const normalizedReaction = reaction == null
+			? null
+			: reaction.startsWith(':')
+				? this.decodeReaction(reaction).reaction
+				: this.normalize(reaction);
+		const exist = await this.withReactionLock(user.id, note.id, async transactionalEntityManager => {
+			const repository = transactionalEntityManager.getRepository(MiNoteReaction);
+			const existingReactions = await repository.find({
+				where: {
+					noteId: note.id,
+					userId: user.id,
+				},
+				order: {
+					id: 'DESC',
+				},
+			});
+			const existingReaction = normalizedReaction == null
+				? existingReactions[0]
+				: existingReactions.find(existing => this.convertLegacyReaction(existing.reaction) === normalizedReaction);
+
+			if (existingReaction == null) {
+				throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
+			}
+
+			const result = await repository.delete(existingReaction.id);
+			if (result.affected !== 1) {
+				throw new IdentifiableError('60527ec9-b4cb-4a88-a6bd-32d3ad26817d', 'not reacted');
+			}
+			await this.updateAggregatesForDelete(user, note, existingReaction, transactionalEntityManager.getRepository(MiNote));
+			return {
+				value: existingReaction,
+				afterCommit: () => this.publishReactionDeleted(user, note, existingReaction),
+			};
 		});
 
+		await this.finishDelete(user, note, exist);
+	}
+
+	@bindThis
+	private async finishDelete(user: { id: MiUser['id']; host: MiUser['host']; isBot: MiUser['isBot']; }, note: MiNote, exist: MiNoteReaction) {
 		//#region 配信
 		if (this.userEntityService.isLocalUser(user) && !note.localOnly) {
 			const content = this.apRendererService.addContext(this.apRendererService.renderUndo(await this.apRendererService.renderLike(exist, note), user));
@@ -335,6 +431,23 @@ export class ReactionService {
 			trackPromise(dm.execute());
 		}
 		//#endregion
+	}
+
+	@bindThis
+	private async updateAggregatesForDelete(user: { id: MiUser['id'] }, note: MiNote, exist: MiNoteReaction, notesRepository: Repository<MiNote>) {
+		// Decrement reactions count
+		if (this.meta.enableReactionsBuffering) {
+			await this.reactionsBufferingService.delete(note.id, user.id, exist.reaction);
+		} else {
+			const sql = `jsonb_set("reactions", '{${exist.reaction}}', (COALESCE("reactions"->>'${exist.reaction}', '0')::int - 1)::text::jsonb)`;
+			await notesRepository.createQueryBuilder().update()
+				.set({
+					reactions: () => sql,
+					reactionAndUserPairCache: () => `array_remove("reactionAndUserPairCache", '${user.id}/${exist.reaction}')`,
+				})
+				.where('id = :id', { id: note.id })
+				.execute();
+		}
 	}
 
 	/**

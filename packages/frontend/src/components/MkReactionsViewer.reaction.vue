@@ -8,12 +8,19 @@ SPDX-License-Identifier: AGPL-3.0-only
 	ref="buttonEl"
 	v-ripple="canToggle"
 	class="_button"
-	:class="[$style.root, { [$style.reacted]: myReaction == reaction, [$style.canToggle]: canToggle, [$style.small]: prefer.s.reactionsDisplaySize === 'small', [$style.large]: prefer.s.reactionsDisplaySize === 'large' }]"
+	:class="[$style.root, { [$style.reacted]: isReacted, [$style.canToggle]: canToggle, [$style.small]: prefer.s.reactionsDisplaySize === 'small', [$style.large]: prefer.s.reactionsDisplaySize === 'large' }]"
 	@click="toggleReaction()"
 	@contextmenu.prevent.stop="menu"
 >
-
-	<MkReactionIcon style="pointer-events: none;" :class="prefer.s.limitWidthOfReaction ? $style.limitWidth : ''" :style="prefer.s.limitWidthOfReaction ? { maxWidth: `${prefer.s.reactionMaxWidth}px` } : undefined" :reaction="reaction" :emojiUrl="reactionEmojis[emojiName]"/>
+<MkReactionIcon
+	style="pointer-events: none;"
+	:class="prefer.s.limitWidthOfReaction ? $style.limitWidth : ''"
+	:style="prefer.s.limitWidthOfReaction
+		? { maxWidth: `min(${prefer.s.reactionMaxWidth}px, calc(100vw - 100px))`, }
+		: undefined"
+	:reaction="reaction"
+	:emojiUrl="reactionEmojis[emojiName]"
+/>
 	<span :class="$style.count">{{ count }}</span>
 </button>
 </template>
@@ -48,6 +55,7 @@ const props = defineProps<{
 	reaction: string;
 	reactionEmojis: Misskey.entities.Note['reactionEmojis'];
 	myReaction: Misskey.entities.Note['myReaction'];
+	myReactions?: Misskey.entities.Note['myReactions'];
 	count: number;
 	isInitial: boolean;
 }>();
@@ -81,6 +89,13 @@ const reactionToUse = computed(() => localEquivalentEmojiName.value == null
 
 const reactionEmojiNameToUse = computed(() => getEmojiNameFromReaction(reactionToUse.value));
 
+const selectedReaction = computed(() => {
+	const myReactions = props.myReactions ?? (props.myReaction ? [props.myReaction] : []);
+	return myReactions.find(reaction => reaction === reactionToUse.value || reaction === props.reaction);
+});
+
+const isReacted = computed(() => selectedReaction.value != null);
+
 const canToggle = computed(() => {
 	const emoji = reactionToUse.value.startsWith(':')
 		? customEmojisMap.get(reactionEmojiNameToUse.value)
@@ -99,47 +114,27 @@ async function toggleReaction() {
 	const targetReaction = reactionToUse.value;
 	const targetEmojiName = reactionEmojiNameToUse.value;
 
-	const oldReaction = props.myReaction;
-	if (oldReaction) {
+	if (isReacted.value) {
+		const reactionToDelete = selectedReaction.value!;
 		const confirm = await os.confirm({
 			type: 'warning',
-			text: oldReaction !== targetReaction ? i18n.ts.changeReactionConfirm : i18n.ts.cancelReactionConfirm,
+			text: i18n.ts.cancelReactionConfirm,
 		});
 		if (confirm.canceled) return;
 
-		if (oldReaction !== targetReaction) {
-			sound.playMisskeySfx('reaction');
-			haptic();
-		}
-
 		if (mock) {
-			emit('reactionToggled', targetReaction, (props.count - 1));
+			emit('reactionToggled', reactionToDelete, (props.count - 1));
 			return;
 		}
 
-		misskeyApi('notes/reactions/delete', {
+		os.apiWithDialog('notes/reactions/delete', {
 			noteId: props.noteId,
+			reaction: reactionToDelete,
 		}).then(() => {
 			noteEvents.emit(`unreacted:${props.noteId}`, {
 				userId: me.id,
-				reaction: oldReaction,
+				reaction: reactionToDelete,
 			});
-			if (oldReaction !== targetReaction) {
-				misskeyApi('notes/reactions/create', {
-					noteId: props.noteId,
-					reaction: targetReaction,
-				}).then(() => {
-					const emoji = customEmojisMap.get(targetEmojiName);
-					if (emoji == null && getUnicodeEmojiOrNull(targetReaction) == null) {
-						return;
-					}
-					noteEvents.emit(`reacted:${props.noteId}`, {
-						userId: me.id,
-						reaction: targetReaction,
-						emoji: emoji,
-					});
-				});
-			}
 		});
 	} else {
 		if (prefer.s.confirmOnReact) {
@@ -159,7 +154,7 @@ async function toggleReaction() {
 			return;
 		}
 
-		misskeyApi('notes/reactions/create', {
+		os.apiWithDialog('notes/reactions/create', {
 			noteId: props.noteId,
 			reaction: targetReaction,
 		}).then(() => {
@@ -347,7 +342,6 @@ if (!mock) {
 }
 
 .limitWidth {
-
 	object-fit: contain;
 }
 

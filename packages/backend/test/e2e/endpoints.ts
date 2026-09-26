@@ -21,12 +21,14 @@ describe('Endpoints', () => {
 	let bob: misskey.entities.SignupResponse;
 	let carol: misskey.entities.SignupResponse;
 	let dave: misskey.entities.SignupResponse;
+	let remote: misskey.entities.SignupResponse;
 
 	beforeAll(async () => {
 		alice = await signup({ username: 'alice' });
 		bob = await signup({ username: 'bob' });
 		carol = await signup({ username: 'carol' });
 		dave = await signup({ username: 'dave' });
+		remote = await signup({ username: 'remote', host: 'remote.example.com' });
 		await api('admin/update-meta', { federation: 'all' }, alice as misskey.entities.SignupResponse);
 	}, 1000 * 60 * 2);
 
@@ -247,7 +249,7 @@ describe('Endpoints', () => {
 			assert.strictEqual(res.status, 204);
 		});
 
-		test('二重にリアクションすると上書きされる', async () => {
+		test('複数の異なるリアクションを追加でき、最新のリアクションも取得できる', async () => {
 			const bobPost = await post(bob, { text: 'hi' });
 
 			await api('notes/reactions/create', {
@@ -267,7 +269,79 @@ describe('Endpoints', () => {
 			}, alice);
 
 			assert.strictEqual(resNote.status, 200);
-			assert.deepStrictEqual(resNote.body.reactions, { '🚀': 1 });
+			assert.deepStrictEqual(resNote.body.reactions, { '🥰': 1, '🚀': 1 });
+			assert.deepStrictEqual(resNote.body.myReactions, ['🚀', '🥰']);
+			assert.strictEqual(resNote.body.myReaction, '🚀');
+		});
+
+		test('同じリアクションは重複できず、6個目は追加できない', async () => {
+			const bobPost = await post(bob, { text: 'hi' });
+			const reactions = ['👍', '🥰', '🚀', '🎉', '⭐'];
+
+			for (const reaction of reactions) {
+				const res = await api('notes/reactions/create', {
+					noteId: bobPost.id,
+					reaction,
+				}, alice);
+				assert.strictEqual(res.status, 204);
+			}
+
+			const duplicate = await api('notes/reactions/create', {
+				noteId: bobPost.id,
+				reaction: '👍',
+			}, alice);
+			assert.strictEqual(duplicate.status, 400);
+			assert.strictEqual((duplicate.body as unknown as { error: { code: string } }).error.code, 'ALREADY_REACTED');
+
+			const sixth = await api('notes/reactions/create', {
+				noteId: bobPost.id,
+				reaction: '😇',
+			}, alice);
+			assert.strictEqual(sixth.status, 400);
+			assert.strictEqual((sixth.body as unknown as { error: { code: string } }).error.code, 'TOO_MANY_REACTIONS');
+		});
+
+		test('指定したリアクションを解除でき、省略時は最新のリアクションを解除する', async () => {
+			const bobPost = await post(bob, { text: 'hi' });
+			for (const reaction of ['👍', '🥰', '🚀']) {
+				await api('notes/reactions/create', { noteId: bobPost.id, reaction }, alice);
+			}
+
+			const specified = await api('notes/reactions/delete', {
+				noteId: bobPost.id,
+				reaction: '🥰',
+			}, alice);
+			assert.strictEqual(specified.status, 204);
+
+			const legacy = await api('notes/reactions/delete', {
+				noteId: bobPost.id,
+			}, alice);
+			assert.strictEqual(legacy.status, 204);
+
+			const resNote = await api('notes/show', { noteId: bobPost.id }, alice);
+			assert.strictEqual(resNote.status, 200);
+			assert.deepStrictEqual(resNote.body.reactions, { '👍': 1 });
+			assert.deepStrictEqual(resNote.body.myReactions, ['👍']);
+			assert.strictEqual(resNote.body.myReaction, '👍');
+		});
+
+		test('リモートユーザーから同時に届いたリアクションは1個に置き換える', async () => {
+			const bobPost = await post(bob, { text: 'hi' });
+			const responses = await Promise.all([
+				api('notes/reactions/create', { noteId: bobPost.id, reaction: '👍' }, remote),
+				api('notes/reactions/create', { noteId: bobPost.id, reaction: '🚀' }, remote),
+			]);
+			assert.ok(responses.every(response => response.status === 204));
+
+			const resNote = await api('notes/show', { noteId: bobPost.id }, alice);
+			assert.strictEqual(resNote.status, 200);
+			assert.strictEqual(Object.values(resNote.body.reactions).reduce((sum, count) => sum + count, 0), 1);
+
+			const reactionList = await api('notes/reactions', { noteId: bobPost.id });
+			assert.strictEqual(reactionList.status, 200);
+			assert.strictEqual(reactionList.body.length, 1);
+			assert.strictEqual(reactionList.body[0].user.id, remote.id);
+			assert.deepStrictEqual(resNote.body.reactions, { [reactionList.body[0].type]: 1 });
 		});
 
 		test('存在しない投稿にはリアクションできない', async () => {

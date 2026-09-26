@@ -32,7 +32,6 @@ import { i18n } from '@/i18n.js';
 import { globalEvents, useGlobalEvent } from '@/events.js';
 import MkUsersTooltip from '@/components/MkUsersTooltip.vue';
 import MkReactionsViewerDetails from '@/components/MkReactionsViewer.details.vue';
-import MkRippleEffect from '@/components/MkRippleEffect.vue';
 import { notePage } from '@/filters/note.js';
 import type { DI as DIType } from '@/di.js';
 import type { ExtractInjectedType } from '@/types/misc.js';
@@ -251,50 +250,47 @@ export function useNote(
 		if (!isLoggedIn) return;
 		showMovedDialog();
 
-		if (appearNote.reactionAcceptance === 'likeOnly') {
-			sound.playMisskeySfx('reaction');
-			if (props.mock) return;
-			misskeyApi('notes/reactions/create', {
-				noteId: appearNote.id,
-				reaction: '❤️',
-			}).then(() => {
-				noteEvents.emit(`reacted:${appearNote.id}`, { userId: $i!.id, reaction: '❤️' });
-			});
-			if (els.reactButton != null && els.reactButton.value != null && prefer.s.animation) {
-				const rect = els.reactButton.value.getBoundingClientRect();
-				const { dispose } = os.popup(MkRippleEffect, {
-					x: rect.left + (els.reactButton.value.offsetWidth / 2),
-					y: rect.top + (els.reactButton.value.offsetHeight / 2),
-				}, {
-					end: () => dispose(),
-				});
-			}
-		} else {
-			blur();
-			reactionPicker.show(els.reactButton?.value ?? null, rawNote, async (reaction) => {
-				if (prefer.s.confirmOnReact) {
-					const confirm = await os.confirm({
-						type: 'question',
-						text: i18n.tsx.reactAreYouSure({ emoji: reaction.replace('@.', '') }),
-					});
-					if (confirm.canceled) return;
-				}
-				sound.playMisskeySfx('reaction');
+		blur();
+		reactionPicker.show(els.reactButton?.value ?? null, rawNote, async (reaction) => {
+			const reactionToUse = appearNote.reactionAcceptance === 'likeOnly' ? '❤️' : reaction;
+			let normalizedReaction = reactionToUse.replace(/^:(\w+):$/, ':$1@.:');
+			normalizedReaction = normalizedReaction.match('\u200d') ? normalizedReaction : normalizedReaction.replace(/\ufe0f/g, '');
+			const myReactions = $appearNote.myReactions ?? ($appearNote.myReaction ? [$appearNote.myReaction] : []);
+			if (myReactions.includes(normalizedReaction)) {
 				if (props.mock) {
-					if (createReactionMock) createReactionMock(reaction);
+					if (createReactionMock) createReactionMock(normalizedReaction);
 					return;
 				}
-				misskeyApi('notes/reactions/create', {
-					noteId: appearNote.id,
-					reaction: reaction,
-				}).then(() => {
-					noteEvents.emit(`reacted:${appearNote.id}`, { userId: $i!.id, reaction: reaction });
+				const confirm = await os.confirm({
+					type: 'warning',
+					text: i18n.ts.cancelReactionConfirm,
 				});
-				if (appearNote.text && appearNote.text.length > 100 && (Date.now() - new Date(appearNote.createdAt).getTime() < 1000 * 3)) {
-					claimAchievement('reactWithoutRead');
-				}
-			}, () => { focus(); });
-		}
+				if (confirm.canceled) return;
+				undoReact(normalizedReaction);
+				return;
+			}
+			if (prefer.s.confirmOnReact) {
+				const confirm = await os.confirm({
+					type: 'question',
+					text: i18n.tsx.reactAreYouSure({ emoji: reactionToUse.replace('@.', '') }),
+				});
+				if (confirm.canceled) return;
+			}
+			sound.playMisskeySfx('reaction');
+			if (props.mock) {
+				if (createReactionMock) createReactionMock(normalizedReaction);
+				return;
+			}
+			os.apiWithDialog('notes/reactions/create', {
+				noteId: appearNote.id,
+				reaction: reactionToUse,
+			}).then(() => {
+				noteEvents.emit(`reacted:${appearNote.id}`, { userId: $i!.id, reaction: reactionToUse });
+			});
+			if (appearNote.text && appearNote.text.length > 100 && (Date.now() - new Date(appearNote.createdAt).getTime() < 1000 * 3)) {
+				claimAchievement('reactWithoutRead');
+			}
+		}, () => { focus(); });
 	}
 
 	async function reactViaMfmEmoji(reaction: string) {
@@ -303,7 +299,7 @@ export function useNote(
 		if (!isLoggedIn) return;
 		showMovedDialog();
 		sound.playMisskeySfx('reaction');
-		misskeyApi('notes/reactions/create', {
+		os.apiWithDialog('notes/reactions/create', {
 			noteId: appearNote.id,
 			reaction: reaction,
 		}).then(() => {
@@ -314,25 +310,13 @@ export function useNote(
 		});
 	}
 
-	function undoReact(): void {
-		const oldReaction = $appearNote.myReaction;
+	function undoReact(reaction?: string): void {
+		const oldReaction = reaction ?? $appearNote.myReaction;
 		if (!oldReaction) return;
 		if (props.mock) return;
-		misskeyApi('notes/reactions/delete', { noteId: appearNote.id }).then(() => {
+		os.apiWithDialog('notes/reactions/delete', { noteId: appearNote.id, reaction: oldReaction }).then(() => {
 			noteEvents.emit(`unreacted:${appearNote.id}`, { userId: $i!.id, reaction: oldReaction });
 		});
-	}
-
-	function toggleReact(customMockCallback?: (reaction: string) => void) {
-		if ($appearNote.myReaction == null) {
-			react(customMockCallback);
-		} else {
-			if (props.mock && customMockCallback) {
-				customMockCallback($appearNote.myReaction);
-			} else {
-				undoReact();
-			}
-		}
 	}
 
 	function onContextmenu(ev: PointerEvent): void {
@@ -455,7 +439,6 @@ export function useNote(
 		reply,
 		react,
 		reactViaMfmEmoji,
-		toggleReact,
 		onContextmenu,
 		showMenu,
 		clip,

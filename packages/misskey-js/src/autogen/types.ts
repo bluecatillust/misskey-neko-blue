@@ -4521,6 +4521,7 @@ export type components = {
             clippedCount?: number;
             hasPoll?: boolean;
             myReaction?: string | null;
+            myReactions?: string[];
         };
         NoteDraft: {
             /**
@@ -30959,6 +30960,7 @@ export interface operations {
                 'application/json': {
                     /** Format: misskey:id */
                     noteId: string;
+                    reaction?: string;
                 };
             };
         };

@@ -4505,6 +4505,10 @@ export interface Locale extends ILocale {
      */
     "limitWidthOfReaction": string;
     /**
+     * リアクション画像の最大横幅
+     */
+    "reactionMaxWidth": string;
+    /**
      * ノートIDまたはURL
      */
     "noteIdOrUrl": string;

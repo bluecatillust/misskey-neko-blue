@@ -185,6 +185,7 @@ export type ReactiveNoteData = {
 	reactionCount: Misskey.entities.Note['reactionCount'];
 	reactionEmojis: Misskey.entities.Note['reactionEmojis'];
 	myReaction: Misskey.entities.Note['myReaction'];
+	myReactions: Misskey.entities.Note['myReactions'];
 	pollChoices: NonNullable<Misskey.entities.Note['poll']>['choices'];
 };
 
@@ -214,6 +215,7 @@ export function useNoteCapture(props: {
 		reactionCount: note.reactionCount,
 		reactionEmojis: note.reactionEmojis,
 		myReaction: note.myReaction,
+		myReactions: note.myReactions ?? (note.myReaction ? [note.myReaction] : []),
 		pollChoices: note.poll?.choices ?? [],
 	});
 
@@ -222,14 +224,15 @@ export function useNoteCapture(props: {
 	noteEvents.on(`pollVoted:${note.id}`, onPollVoted);
 
 	// 操作がダブっていないかどうかを簡易的に記録するためのMap
-	const reactionUserMap = new Map<Misskey.entities.User['id'], string | typeof noReaction>();
+	const reactionUserMap = new Map<string, string | typeof noReaction>();
 	let latestPollVotedKey: string | null = null;
 
 	function onReacted(ctx: { userId: Misskey.entities.User['id']; reaction: string; emoji?: { name: string; url: string; } | null; }): void {
 		let normalizedName = ctx.reaction.replace(/^:(\w+):$/, ':$1@.:');
 		normalizedName = normalizedName.match('\u200d') ? normalizedName : normalizedName.replace(/\ufe0f/g, '');
-		if (reactionUserMap.has(ctx.userId) && reactionUserMap.get(ctx.userId) === normalizedName) return;
-		reactionUserMap.set(ctx.userId, normalizedName);
+		const reactionUserKey = `${ctx.userId}/${normalizedName}`;
+		if (reactionUserMap.get(reactionUserKey) === normalizedName) return;
+		reactionUserMap.set(reactionUserKey, normalizedName);
 
 		if (ctx.emoji && !(ctx.emoji.name in $note.reactionEmojis)) {
 			$note.reactionEmojis[ctx.emoji.name] = ctx.emoji.url;
@@ -242,6 +245,7 @@ export function useNoteCapture(props: {
 
 		if ($i && (ctx.userId === $i.id)) {
 			$note.myReaction = normalizedName;
+			$note.myReactions = [normalizedName, ...($note.myReactions ?? []).filter(reaction => reaction !== normalizedName)];
 		}
 	}
 
@@ -250,8 +254,9 @@ export function useNoteCapture(props: {
 		normalizedName = normalizedName.match('\u200d') ? normalizedName : normalizedName.replace(/\ufe0f/g, '');
 
 		// 確実に一度リアクションされて取り消されている場合のみ処理をとめる（APIで初回読み込み→Streamでアップデート等の場合、reactionUserMapに情報がないため）
-		if (reactionUserMap.has(ctx.userId) && reactionUserMap.get(ctx.userId) === noReaction) return;
-		reactionUserMap.set(ctx.userId, noReaction);
+		const reactionUserKey = `${ctx.userId}/${normalizedName}`;
+		if (reactionUserMap.get(reactionUserKey) === noReaction) return;
+		reactionUserMap.set(reactionUserKey, noReaction);
 
 		const currentCount = $note.reactions[normalizedName] || 0;
 
@@ -260,7 +265,8 @@ export function useNoteCapture(props: {
 		if ($note.reactions[normalizedName] === 0) delete $note.reactions[normalizedName];
 
 		if ($i && (ctx.userId === $i.id)) {
-			$note.myReaction = null;
+			$note.myReactions = ($note.myReactions ?? []).filter(reaction => reaction !== normalizedName);
+			$note.myReaction = $note.myReactions[0] ?? null;
 		}
 	}
 

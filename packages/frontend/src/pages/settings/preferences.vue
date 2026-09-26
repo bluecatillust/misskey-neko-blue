@@ -268,21 +268,27 @@ SPDX-License-Identifier: AGPL-3.0-only
 									</MkSwitch>
 								</MkPreferenceContainer>
 							</SearchMarker>
-							<SearchMarker v-if="limitWidthOfReaction" :keywords="['reaction', 'image', 'width', 'size', 'limit']">
-								<MkPreferenceContainer k="reactionMaxWidth">
-									<MkRadios
-										v-model="reactionMaxWidth"
-										:options="[
-											{ value: 70, label: '70px' },
-											{ value: 140, label: '140px' },
-											{ value: 210, label: '210px' },
-											{ value: 280, label: '280px' },
-										]"
-									>
-										<template #label><SearchLabel>{{ i18n.ts.reactionMaxWidth }}</SearchLabel></template>
-									</MkRadios>
-								</MkPreferenceContainer>
-							</SearchMarker>
+
+<SearchMarker
+	v-if="limitWidthOfReaction"
+	:keywords="['reaction', 'image', 'width', 'size', 'limit']"
+>
+	<MkPreferenceContainer k="reactionMaxWidth">
+		<MkRadios
+			v-model="reactionMaxWidth"
+			:options="[
+				{ value: 70, label: '70px' },
+				{ value: 140, label: '140px' },
+				{ value: 210, label: '210px' },
+				{ value: 280, label: '280px' },
+			]"
+		>
+			<template #label>
+				<SearchLabel>{{ i18n.ts.reactionMaxWidth }}</SearchLabel>
+			</template>
+		</MkRadios>
+	</MkPreferenceContainer>
+</SearchMarker>
 
 							<SearchMarker :keywords="['attachment', 'image', 'photo', 'picture', 'media', 'thumbnail', 'list', 'size', 'height']">
 								<MkPreferenceContainer k="mediaListWithOneImageAppearance">
