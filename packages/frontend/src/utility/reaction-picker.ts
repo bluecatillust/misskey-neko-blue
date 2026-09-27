@@ -39,6 +39,7 @@ class ReactionPicker {
 			pinnedEmojis: this.reactionsRef,
 			asReactionPicker: true,
 			targetNote: targetNoteRef,
+			choseAndClose: false,
 		}, {
 			done: (reaction: string) => {
 				if (onChosen) onChosen(reaction);

@@ -101,6 +101,15 @@ single-reaction field for compatibility with older clients.
 For Misskey 2026.9.1, the aggregate reaction updates also retain upstream's
 parameterized SQL handling for reaction names and user/reaction cache pairs.
 
+### Keep the reaction picker open after selection
+
+File:
+`packages/frontend/src/utility/reaction-picker.ts`
+
+The reaction picker remains open after an emoji is selected, allowing users to
+add or remove multiple reactions consecutively. It still closes when users
+click outside the picker or press Escape.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.9.1.
