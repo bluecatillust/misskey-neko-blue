@@ -6,8 +6,8 @@ Misskey version used by `neko.blue`.
 ## Base version
 
 - Upstream project: <https://github.com/misskey-dev/misskey>
-- Misskey version: `2026.9.1`
-- Upstream commit: `7f05994f003a1d84e80aa89aef7de4925880f408`
+- Misskey version: `2026.10.0`
+- Upstream commit: `de89118a225fbe0833e42ab94e8d5af1e5211208`
 - License: GNU Affero General Public License v3.0 (`AGPL-3.0-only`)
 
 ## Local modifications
@@ -98,7 +98,7 @@ emoji by one user on one note remains disallowed. The note API and streaming
 payloads expose all reactions selected by the current user, and retain the
 single-reaction field for compatibility with older clients.
 
-For Misskey 2026.9.1, the aggregate reaction updates also retain upstream's
+For Misskey 2026.10.0, the aggregate reaction updates also retain upstream's
 parameterized SQL handling for reaction names and user/reaction cache pairs.
 
 ### Keep the reaction picker open after selection
@@ -112,7 +112,7 @@ click outside the picker or press Escape.
 
 ## Build and configuration
 
-Follow the upstream installation and build instructions for Misskey 2026.9.1.
+Follow the upstream installation and build instructions for Misskey 2026.10.0.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
 credentials, uploaded files, and database contents must remain private.
