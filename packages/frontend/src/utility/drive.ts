@@ -265,13 +265,15 @@ export async function selectFile<
 	return opts.multiple ? (files as MR) : (files[0]! as MR);
 }
 
+export class DriveFileImageProcessingError extends Error {
+}
+
 export async function createCroppedImageDriveFileFromImageDriveFile(imageDriveFile: Misskey.entities.DriveFile, options: {
 	aspectRatio: number | null;
 }): Promise<Misskey.entities.DriveFile> {
 	return new Promise((resolve, reject) => {
 		const imgUrl = getProxiedImageUrl(imageDriveFile.url, undefined, true);
 		const image = new Image();
-		image.src = imgUrl;
 		image.onload = () => {
 			const canvas = window.document.createElement('canvas');
 			const ctx = canvas.getContext('2d')!;
@@ -280,7 +282,7 @@ export async function createCroppedImageDriveFileFromImageDriveFile(imageDriveFi
 			ctx.drawImage(image, 0, 0);
 			canvas.toBlob(blob => {
 				if (blob == null) {
-					reject();
+					reject(new DriveFileImageProcessingError('Failed to convert image to blob'));
 					return;
 				}
 
@@ -292,12 +294,14 @@ export async function createCroppedImageDriveFileFromImageDriveFile(imageDriveFi
 						folderId: imageDriveFile.folderId,
 					});
 
-					filePromise.then(driveFile => {
-						resolve(driveFile);
-					});
-				});
+					filePromise.then(resolve, reject);
+				}, reject);
 			});
 		};
+		image.onerror = () => {
+			reject(new DriveFileImageProcessingError('Failed to load image'));
+		};
+		image.src = imgUrl;
 	});
 }
 

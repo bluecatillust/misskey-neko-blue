@@ -10441,6 +10441,14 @@ export interface Locale extends ILocale {
          */
         "changeBanner": string;
         /**
+         * このファイルは対応していません
+         */
+        "driveFileTypeWarn": string;
+        /**
+         * 画像ファイルを選択してください
+         */
+        "driveFileTypeWarnDescription": string;
+        /**
          * 内容にURLを設定すると、リンク先のWebサイトに自分のプロフィールへのリンクが含まれている場合に所有者確認済みアイコンを表示させることができます。
          */
         "verifiedLinkDescription": string;

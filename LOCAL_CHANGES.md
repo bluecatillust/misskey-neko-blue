@@ -110,6 +110,21 @@ The reaction picker remains open after an emoji is selected, allowing users to
 add or remove multiple reactions consecutively. It still closes when users
 click outside the picker or press Escape.
 
+### Crop profile images selected from Drive
+
+Files:
+
+- `locales/ja-JP.yml`
+- `packages/frontend/src/pages/settings/profile.vue`
+- `packages/frontend/src/utility/drive.ts`
+- `packages/i18n/src/autogen/locale.ts`
+
+Profile avatar and banner images selected from Drive now offer the same crop
+confirmation as local uploads. Avatar crops use a 1:1 aspect ratio and banner
+crops use 2:1. Cropped images are saved as new Drive files in the original
+folder, while choosing not to crop keeps the original file. Non-image files and
+image-loading failures are handled with an error message.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.10.0.

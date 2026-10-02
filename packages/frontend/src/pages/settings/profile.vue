@@ -173,7 +173,7 @@ import MkFolder from '@/components/MkFolder.vue';
 import FormSlot from '@/components/form/slot.vue';
 import FormLink from '@/components/form/link.vue';
 import MkDraggable from '@/components/MkDraggable.vue';
-import { chooseDriveFile } from '@/utility/drive.js';
+import { chooseDriveFile, createCroppedImageDriveFileFromImageDriveFile, DriveFileImageProcessingError } from '@/utility/drive.js';
 import * as os from '@/os.js';
 import { i18n } from '@/i18n.js';
 import { ensureSignin } from '@/i.js';
@@ -308,10 +308,45 @@ function changeAvatar(ev: PointerEvent) {
 	}, {
 		text: i18n.ts.fromDrive,
 		icon: 'ti ti-cloud',
-		action: () => {
-			chooseDriveFile({ multiple: false }).then(files => {
-				done(files[0]);
+		action: async () => {
+			const files = await chooseDriveFile({ multiple: false });
+			const file = files[0];
+
+			if (!file.type.startsWith('image/')) {
+				await os.alert({
+					type: 'error',
+					title: i18n.ts._profile.driveFileTypeWarn,
+					text: i18n.ts._profile.driveFileTypeWarnDescription,
+				});
+				return;
+			}
+
+			let originalOrCropped = file;
+
+			const { canceled } = await os.confirm({
+				type: 'question',
+				text: i18n.ts.cropImageAsk,
+				okText: i18n.ts.cropYes,
+				cancelText: i18n.ts.cropNo,
 			});
+
+			if (!canceled) {
+				try {
+					originalOrCropped = await createCroppedImageDriveFileFromImageDriveFile(file, {
+						aspectRatio: 1,
+					});
+				} catch (error) {
+					if (error instanceof DriveFileImageProcessingError) {
+						await os.alert({
+							type: 'error',
+							text: i18n.ts._imageFrameEditor.failedToLoadImage,
+						});
+					}
+					return;
+				}
+			}
+
+			done(originalOrCropped);
 		},
 	}], ev.currentTarget ?? ev.target);
 }
@@ -356,10 +391,45 @@ function changeBanner(ev: PointerEvent) {
 	}, {
 		text: i18n.ts.fromDrive,
 		icon: 'ti ti-cloud',
-		action: () => {
-			chooseDriveFile({ multiple: false }).then(files => {
-				done(files[0]);
+		action: async () => {
+			const files = await chooseDriveFile({ multiple: false });
+			const file = files[0];
+
+			if (!file.type.startsWith('image/')) {
+				await os.alert({
+					type: 'error',
+					title: i18n.ts._profile.driveFileTypeWarn,
+					text: i18n.ts._profile.driveFileTypeWarnDescription,
+				});
+				return;
+			}
+
+			let originalOrCropped = file;
+
+			const { canceled } = await os.confirm({
+				type: 'question',
+				text: i18n.ts.cropImageAsk,
+				okText: i18n.ts.cropYes,
+				cancelText: i18n.ts.cropNo,
 			});
+
+			if (!canceled) {
+				try {
+					originalOrCropped = await createCroppedImageDriveFileFromImageDriveFile(file, {
+						aspectRatio: 2,
+					});
+				} catch (error) {
+					if (error instanceof DriveFileImageProcessingError) {
+						await os.alert({
+							type: 'error',
+							text: i18n.ts._imageFrameEditor.failedToLoadImage,
+						});
+					}
+					return;
+				}
+			}
+
+			done(originalOrCropped);
 		},
 	}], ev.currentTarget ?? ev.target);
 }
