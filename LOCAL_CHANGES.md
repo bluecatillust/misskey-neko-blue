@@ -125,6 +125,17 @@ crops use 2:1. Cropped images are saved as new Drive files in the original
 folder, while choosing not to crop keeps the original file. Non-image files and
 image-loading failures are handled with an error message.
 
+### Resume sensitive animated images after reveal
+
+File:
+`packages/frontend/src/components/MkMediaImage.vue`
+
+After a sensitive GIF or APNG is revealed in the timeline, the frontend uses
+the original animated image URL instead of the thumbnail URL. This works around
+animation playback remaining stuck on the first frame in iOS Safari. The
+preference to disable animated-image playback still takes priority, and the
+original file is loaded only after the user reveals sensitive animated media.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.10.0.

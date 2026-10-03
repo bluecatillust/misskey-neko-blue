@@ -100,12 +100,28 @@ const emit = defineEmits<{
 
 const hide = ref(true);
 
-const url = computed(() => (props.raw || prefer.s.loadRawImages)
-	? props.image.url
-	: prefer.s.disableShowingAnimatedImages
-		? getStaticImageUrl(props.image.url)
-		: props.image.thumbnailUrl!,
+const isAnimatedImage = computed(() =>
+	['image/gif', 'image/apng'].includes(props.image.type),
 );
+
+const url = computed(() => {
+	if (props.raw || prefer.s.loadRawImages) {
+		return props.image.url;
+	}
+
+	if (prefer.s.disableShowingAnimatedImages) {
+		return getStaticImageUrl(props.image.url);
+	}
+
+	// iOS Safariでは、センシティブなアニメーション画像を
+	// 非表示状態から解除した際にthumbnailUrlのアニメーションが
+	// 開始されない場合があるため、解除後は元画像を使用する
+	if (props.image.isSensitive && isAnimatedImage.value && !hide.value) {
+		return props.image.url;
+	}
+
+	return props.image.thumbnailUrl!;
+});
 
 async function onClick(ev: PointerEvent) {
 	if (!props.controls) {
