@@ -136,6 +136,21 @@ animation playback remaining stuck on the first frame in iOS Safari. The
 preference to disable animated-image playback still takes priority, and the
 original file is loaded only after the user reveals sensitive animated media.
 
+### Show a reaction ranking on the profile reactions tab
+
+Files:
+
+- `packages/backend/src/server/api/endpoints/i/reaction-stats.ts`
+- `packages/backend/src/server/api/endpoint-list.ts`
+- `packages/frontend/src/pages/user/reactions.vue`
+- `packages/misskey-js/src/autogen/`
+
+The signed-in user's profile reaction tab shows the total number of reactions
+they currently have attached to notes and a ranking grouped by emoji. The total
+includes every active reaction, while the ranking is limited to the top 100
+emoji types, ordered by count and then reaction name. The private aggregate API
+only returns statistics for the authenticated user.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.10.0.

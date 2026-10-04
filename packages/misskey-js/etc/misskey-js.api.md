@@ -1980,6 +1980,7 @@ declare namespace entities {
         IPagesResponse,
         IPinRequest,
         IPinResponse,
+        IReactionStatsResponse,
         IReadAnnouncementRequest,
         IRegenerateTokenRequest,
         IRegistryGetRequest,
@@ -2714,6 +2715,9 @@ type IPinRequest = operations['i___pin']['requestBody']['content']['application/
 
 // @public (undocumented)
 type IPinResponse = operations['i___pin']['responses']['200']['content']['application/json'];
+
+// @public (undocumented)
+type IReactionStatsResponse = operations['i___reaction-stats']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
 type IReadAnnouncementRequest = operations['i___read-announcement']['requestBody']['content']['application/json'];

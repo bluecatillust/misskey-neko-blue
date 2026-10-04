@@ -2707,6 +2707,16 @@ export type paths = {
          */
         post: operations['i___pin'];
     };
+    '/i/reaction-stats': {
+        /**
+         * i/reaction-stats
+         * @description Get the current user's active reaction counts grouped by reaction.
+         *
+         *     **Internal Endpoint**: This endpoint is an API for the misskey mainframe and is not intended for use by third parties.
+         *     **Credential required**: *Yes*
+         */
+        post: operations['i___reaction-stats'];
+    };
     '/i/read-announcement': {
         /**
          * i/read-announcement
@@ -26946,6 +26956,70 @@ export interface operations {
                 };
                 content: {
                     'application/json': components['schemas']['MeDetailed'];
+                };
+            };
+            /** @description Client error */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Authentication error */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Forbidden error */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description I'm Ai */
+            418: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+            /** @description Internal server error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': components['schemas']['Error'];
+                };
+            };
+        };
+    };
+    'i___reaction-stats': {
+        responses: {
+            /** @description OK (with results) */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    'application/json': {
+                        total: number;
+                        reactions: {
+                            reaction: string;
+                            count: number;
+                        }[];
+                    };
                 };
             };
             /** @description Client error */

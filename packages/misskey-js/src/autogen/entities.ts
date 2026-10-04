@@ -449,6 +449,7 @@ export type IPagesRequest = operations['i___pages']['requestBody']['content']['a
 export type IPagesResponse = operations['i___pages']['responses']['200']['content']['application/json'];
 export type IPinRequest = operations['i___pin']['requestBody']['content']['application/json'];
 export type IPinResponse = operations['i___pin']['responses']['200']['content']['application/json'];
+export type IReactionStatsResponse = operations['i___reaction-stats']['responses']['200']['content']['application/json'];
 export type IReadAnnouncementRequest = operations['i___read-announcement']['requestBody']['content']['application/json'];
 export type IRegenerateTokenRequest = operations['i___regenerate-token']['requestBody']['content']['application/json'];
 export type IRegistryGetRequest = operations['i___registry___get']['requestBody']['content']['application/json'];

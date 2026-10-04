@@ -5,7 +5,7 @@ declare module '../api.js' {
   export interface APIClient {
     /**
      * No description provided.
-     * 
+     *
      * **Internal Endpoint**: This endpoint is an API for the misskey mainframe and is not intended for use by third parties.
      * **Credential required**: *Yes* / **Permission**: *write:admin:abuse-report:notification-recipient*
      */
@@ -3295,6 +3295,18 @@ declare module '../api.js' {
      * **Credential required**: *Yes* / **Permission**: *write:account*
      */
     request<E extends 'i/pin', P extends Endpoints[E]['req']>(
+      endpoint: E,
+      params: P,
+      credential?: string | null,
+    ): Promise<SwitchCaseResponseType<E, P>>;
+
+    /**
+     * Get the current user's active reaction counts grouped by reaction.
+     *
+     * **Internal Endpoint**: This endpoint is an API for the misskey mainframe and is not intended for use by third parties.
+     * **Credential required**: *Yes*
+     */
+    request<E extends 'i/reaction-stats', P extends Endpoints[E]['req']>(
       endpoint: E,
       params: P,
       credential?: string | null,
