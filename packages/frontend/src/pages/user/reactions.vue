@@ -14,7 +14,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<strong :class="$style.statsTotal">{{ number(stats.total) }}</strong>
 			</div>
 			<template v-if="stats.reactions.length > 0">
-				<div :class="$style.rankingTitle">{{ i18n.ts.ranking }}</div>
+				<div :class="$style.rankingHeader">
+					<div :class="$style.rankingTitle">{{ i18n.ts.ranking }}</div>
+					<button class="_button" :class="$style.shareButton" type="button" @click="shareRanking">
+						<i class="ti ti-share"></i>
+						<span>{{ i18n.ts.share }}</span>
+					</button>
+				</div>
 				<div :class="$style.ranking">
 					<div v-for="item in stats.reactions" :key="item.reaction" :class="$style.rankingItem">
 						<MkReactionIcon :class="$style.rankingReaction" :reaction="item.reaction" :noStyle="true"/>
@@ -49,6 +55,7 @@ import { misskeyApi } from '@/utility/misskey-api.js';
 import { i18n } from '@/i18n.js';
 import { $i } from '@/i.js';
 import number from '@/filters/number.js';
+import * as os from '@/os.js';
 
 const props = defineProps<{
 	user: Misskey.entities.User;
@@ -72,6 +79,27 @@ async function fetchStats(): Promise<void> {
 	} finally {
 		fetchingStats.value = false;
 	}
+}
+
+function shareRanking(): void {
+	if (stats.value == null) return;
+
+	const ranking = stats.value.reactions.slice(0, 10).map((item, index) => (
+		i18n.tsx.reactionRankingShareItem({
+			rank: index + 1,
+			reaction: item.reaction.replace('@.', ''),
+			count: number(item.count),
+		})
+	));
+
+	os.post({
+		initialText: [
+			i18n.ts.reactionRankingShareTitle,
+			i18n.tsx.reactionRankingShareTotal({ count: number(stats.value.total) }),
+			...ranking,
+		].join('\n'),
+		instant: true,
+	});
 }
 
 watch(() => props.user.id, fetchStats, { immediate: true });
@@ -109,9 +137,23 @@ const paginator = markRaw(new Paginator('users/reactions', {
 	font-variant-numeric: tabular-nums;
 }
 
-.rankingTitle {
+.rankingHeader {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 16px;
 	margin-top: 20px;
+}
+
+.rankingTitle {
 	font-weight: bold;
+}
+
+.shareButton {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+	color: var(--MI_THEME-accent);
 }
 
 .ranking {

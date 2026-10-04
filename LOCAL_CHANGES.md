@@ -149,7 +149,9 @@ The signed-in user's profile reaction tab shows the total number of reactions
 they currently have attached to notes and a ranking grouped by emoji. The total
 includes every active reaction, while the ranking is limited to the top 100
 emoji types, ordered by count and then reaction name. The private aggregate API
-only returns statistics for the authenticated user.
+only returns statistics for the authenticated user. A share button opens the
+post composer with the total and the top 10 ranking entries already filled in;
+the user can review or edit the text before posting.
 
 ## Build and configuration
 

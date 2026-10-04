@@ -3097,6 +3097,18 @@ export interface Locale extends ILocale {
      */
     "receivedReactionsCount": string;
     /**
+     * リアクション利用ランキング！
+     */
+    "reactionRankingShareTitle": string;
+    /**
+     * リアクション数：{count}
+     */
+    "reactionRankingShareTotal": ParameterizedString<"count">;
+    /**
+     * {rank}位：{reaction} {count}
+     */
+    "reactionRankingShareItem": ParameterizedString<"rank" | "reaction" | "count">;
+    /**
      * アンケートに投票した数
      */
     "pollVotesCount": string;
