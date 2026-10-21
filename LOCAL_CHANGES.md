@@ -153,9 +153,58 @@ only returns statistics for the authenticated user. A share button opens the
 post composer with the total and the top 10 ranking entries already filled in;
 the user can review or edit the text before posting.
 
+### Prefer browser-side H.264 video conversion
+
+Files:
+
+- `packages/frontend/src/utility/compatible-video.ts`
+- `packages/frontend/src/utility/video-ffmpeg.ts`
+- `packages/frontend/src/composables/use-uploader.ts`
+- `packages/frontend/src/components/MkUploaderItems.vue`
+- `packages/frontend/src/components/MkPostForm.vue`
+- `locales/ja-JP.yml`
+- `packages/i18n/src/autogen/locale.ts`
+- `packages/frontend/test/unit/compatible-video.test.ts`
+- `packages/frontend/test/unit/compatible-video-core.test.ts`
+- `packages/frontend/test/unit/use-uploader-video.test.ts`
+
+New local video uploads default to compatibility mode, producing fast-start MP4
+with H.264 and AAC-LC in the browser. Low compression caps the long edge at 1920
+pixels and the frame rate at 60 fps; medium/high use 1280/854 pixels and 30 fps.
+All four compression levels decode and re-encode through browser-side FFmpeg,
+including no-compression mode, which basically preserves resolution and frame
+rate while using CRF 18. Low/medium/high use CRF 20/23/28. Output is H.264 Main,
+8-bit yuv420p, with AAC-LC at 48 kHz and two channels when audio is present.
+Rotation and non-square pixels are normalized; silent video stays silent.
+Actual output codecs and upload size limits are checked before uploading.
+Unsupported inputs, HDR, cancellation and conversion errors block upload until
+the user retries or explicitly selects
+legacy mode. Switching to legacy resets compression to none; existing legacy
+compression remains selectable. Existing Drive files and third-party API clients
+are unaffected. No backend API or database changes are required.
+
+The uploader serializes compatibility conversion across uploader instances in
+the same tab, displays progress and a keep-open notice, and allows a pending post
+to wait for conversion.
+Posting locks editing and duplicate submission; an abort action remains available.
+Browser unload warnings are best effort and cannot prevent mobile app termination.
+
+The conversion worker, core JavaScript and WASM are served by this Misskey
+installation, with no runtime CDN dependency. The engine is downloaded on first
+use (about 32 MB), and its worker is terminated after every job. Loading times out
+after 120 seconds. The single-threaded core does not require SharedArrayBuffer
+or COOP/COEP headers. Conversion uses the user's device, not a server-side encoder.
+
+Dependencies are pinned in `packages/frontend/package.json` and `pnpm-lock.yaml`:
+`@ffmpeg/ffmpeg` 0.12.15 (MIT) and `@ffmpeg/core` 0.12.10
+(GPL-2.0-or-later, as declared by the npm package). Corresponding source and build
+instructions are maintained in the
+[ffmpeg.wasm repository](https://github.com/ffmpegwasm/ffmpeg.wasm).
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.10.0.
+Install dependencies from the lockfile before building this video-enabled source.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
 credentials, uploaded files, and database contents must remain private.

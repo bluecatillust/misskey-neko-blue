@@ -12836,6 +12836,50 @@ export interface Locale extends ILocale {
     };
     "_uploader": {
         /**
+         * 動画の形式
+         */
+        "videoFormat": string;
+        /**
+         * 互換性優先（MP4／H.264）
+         */
+        "videoCompatible": string;
+        /**
+         * 従来方式
+         */
+        "videoLegacy": string;
+        /**
+         * 従来方式に切り替えます。圧縮は「なし」に戻ります。閲覧する端末やブラウザによっては再生できない場合があります。
+         */
+        "videoLegacyWarning": string;
+        /**
+         * このブラウザでは動画を変換できませんでした。再試行するか、動画のメニューから「動画の形式 → 従来方式」に切り替えてください。元の動画は自動送信されません。
+         */
+        "videoConversionFailed": string;
+        /**
+         * 変換後の動画がアップロード容量上限を超えています。圧縮を強くするか、動画を短くしてください。
+         */
+        "videoTooLarge": string;
+        /**
+         * この動画のHDR色変換には対応していません。「従来方式」でアップロードするか、SDRに変換した動画を選んでください。
+         */
+        "videoHdrUnsupported": string;
+        /**
+         * 動画の変換を中止しました。メニューから再試行するか、「従来方式」に切り替えてください。
+         */
+        "videoCanceled": string;
+        /**
+         * 動画変換エンジンの読み込み・変換中（待機中を含む）…
+         */
+        "videoProcessing": string;
+        /**
+         * 動画の変換・アップロード・投稿が完了するまで、このタブを閉じたり、ページを再読み込みしたりしないでください。スマホではブラウザを画面に表示したままお待ちください。
+         */
+        "videoKeepOpen": string;
+        /**
+         * 変換後: {size}
+         */
+        "videoOutputSize": ParameterizedString<"size">;
+        /**
          * 画像の編集
          */
         "editImage": string;

@@ -20,6 +20,8 @@ import type { Content } from '@/components/MkLightbox.item.vue';
 import * as os from '@/os.js';
 import { isPreviewable, getType } from '@/utility/lightbox.js';
 import { ensureSignin } from '@/i.js';
+import { instance } from '@/instance.js';
+import { CompatibleVideoError, convertCompatibleVideo, isVideoFile } from '@/utility/compatible-video.js';
 
 export type UploaderFeatures = {
 	imageEditing?: boolean;
@@ -50,10 +52,6 @@ const IMAGE_PREPROCESS_NEEDED_TYPES = [
 	...IMAGE_EDITING_SUPPORTED_TYPES,
 ];
 
-const VIDEO_PREPROCESS_NEEDED_TYPES = [
-	...VIDEO_COMPRESSION_SUPPORTED_TYPES,
-];
-
 const mimeTypeMap = {
 	'image/webp': 'webp',
 	'image/jpeg': 'jpg',
@@ -73,6 +71,8 @@ export type UploaderItem = {
 	uploadFailed: boolean;
 	aborted: boolean;
 	compressionLevel: 0 | 1 | 2 | 3;
+	videoMode?: 'compatible' | 'legacy';
+	preprocessError?: string | null;
 	compressedSize?: number | null;
 	preprocessedFile?: Blob | null;
 	file: File;
@@ -87,6 +87,7 @@ export type UploaderItem = {
 };
 
 export function getUploadName(item: UploaderItem): string {
+	if (item.videoMode === 'compatible' && item.suffix === '.mp4') return item.name.replace(/\.[^.]+$/, '') + '.mp4';
 	return item.name + (item.name.endsWith(item.suffix) ? '' : item.suffix);
 }
 
@@ -130,6 +131,24 @@ export function useUploader(options: {
 	});
 
 	const items = ref<UploaderItem[]>([]);
+	const removedItems = new WeakSet<UploaderItem>();
+	const preprocessingTasks = new WeakMap<UploaderItem, Promise<void>>();
+	let videoQueue: Promise<void> = Promise.resolve();
+	let uploadingBatch = false;
+	let disposed = false;
+
+	function isVideo(item: UploaderItem) {
+		return isVideoFile(item.file);
+	}
+
+	function onBeforeUnload(ev: BeforeUnloadEvent) {
+		if (items.value.some(item => item.preprocessing || item.uploading)) {
+			ev.preventDefault();
+			ev.returnValue = '';
+		}
+	}
+
+	onMounted(() => window.addEventListener('beforeunload', onBeforeUnload));
 
 	function initializeFile(file: File) {
 		const id = genId();
@@ -149,6 +168,8 @@ export function useUploader(options: {
 			aborted: false,
 			uploaded: null,
 			uploadFailed: false,
+			videoMode: isVideoFile(file) ? 'compatible' : undefined,
+			preprocessError: null,
 			compressionLevel: IMAGE_EDITING_SUPPORTED_TYPES.includes(file.type) ? prefer.s.defaultImageCompressionLevel : VIDEO_COMPRESSION_SUPPORTED_TYPES.includes(file.type) ? prefer.s.defaultVideoCompressionLevel : 0,
 			watermarkPreset,
 			watermarkLayers: watermarkPreset?.layers ?? null,
@@ -185,6 +206,9 @@ export function useUploader(options: {
 	}
 
 	function removeItem(item: UploaderItem) {
+		removedItems.add(item);
+		item.aborted = true;
+		item.abortPreprocess?.();
 		revokeItemObjectUrls(item);
 		items.value.splice(items.value.indexOf(item), 1);
 	}
@@ -449,8 +473,37 @@ export function useUploader(options: {
 			});
 		}
 
+		if (isVideo(item) && !item.preprocessing && !item.uploading && !item.uploaded) {
+			menu.push({
+				type: 'parent',
+				icon: 'ti ti-movie',
+				text: i18n.ts._uploader.videoFormat,
+				children: [{
+					type: 'radioOption',
+					text: i18n.ts._uploader.videoCompatible,
+					active: computed(() => item.videoMode !== 'legacy'),
+					action: () => { item.videoMode = 'compatible'; void preprocess(item); },
+				}, {
+					type: 'radioOption',
+					text: i18n.ts._uploader.videoLegacy,
+					active: computed(() => item.videoMode === 'legacy'),
+					action: async () => {
+						const { canceled } = await os.confirm({ type: 'warning', text: i18n.ts._uploader.videoLegacyWarning });
+						if (canceled) return;
+						item.videoMode = 'legacy';
+						// A deliberate fallback must also work on browsers without encoders.
+						item.compressionLevel = 0;
+						await preprocess(item);
+					},
+				}],
+			});
+			if (item.preprocessError) {
+				menu.push({ text: i18n.ts.retry, icon: 'ti ti-refresh', action: () => { void preprocess(item); } });
+			}
+		}
+
 		if (
-			(IMAGE_EDITING_SUPPORTED_TYPES.includes(item.file.type) || VIDEO_COMPRESSION_SUPPORTED_TYPES.includes(item.file.type)) &&
+			(IMAGE_EDITING_SUPPORTED_TYPES.includes(item.file.type) || isVideo(item)) &&
 			!item.preprocessing &&
 			!item.uploading &&
 			!item.uploaded
@@ -513,7 +566,7 @@ export function useUploader(options: {
 				icon: 'ti ti-upload',
 				text: i18n.ts.upload,
 				action: () => {
-					uploadOne(item);
+					void uploadOne(item).catch(() => {});
 				},
 			}, {
 				icon: 'ti ti-x',
@@ -555,6 +608,13 @@ export function useUploader(options: {
 	}
 
 	async function uploadOne(item: UploaderItem): Promise<void> {
+		if (item.uploading || item.uploaded) return;
+		await preprocessingTasks.get(item);
+		if (disposed || item.aborted || item.uploading || item.uploaded) return;
+		if (item.preprocessError) {
+			await os.alert({ type: 'error', text: item.preprocessError });
+			throw new Error(item.preprocessError);
+		}
 		item.uploadFailed = false;
 		item.uploading = true;
 
@@ -595,21 +655,20 @@ export function useUploader(options: {
 		});
 	}
 
-	async function upload() { // エラーハンドリングなどを考慮してシーケンシャルにやる
-		items.value = items.value.map(item => ({
-			...item,
-			aborted: false,
-			uploadFailed: false,
-			uploading: false,
-		}));
-
-		for (const item of items.value.filter(item => item.uploaded == null)) {
-			// アップロード処理途中で値が変わる場合（途中で全キャンセルされたりなど）もあるので、Array filterではなくここでチェック
-			if (item.aborted) {
-				continue;
+	async function upload() { // Sequential; keep item identity and pending preprocessing tasks.
+		if (uploadingBatch) return;
+		uploadingBatch = true;
+		try {
+			for (const item of items.value) {
+				item.aborted = false;
+				item.uploadFailed = false;
 			}
-
-			await uploadOne(item);
+			for (const item of [...items.value]) {
+				if (item.aborted || item.uploaded != null) continue;
+				await uploadOne(item);
+			}
+		} finally {
+			uploadingBatch = false;
 		}
 	}
 
@@ -631,32 +690,62 @@ export function useUploader(options: {
 		}
 	}
 
-	async function preprocess(item: UploaderItem): Promise<void> {
+	function preprocess(item: UploaderItem): Promise<void> {
+		item.abortPreprocess?.();
+		const controller = new AbortController();
 		item.preprocessing = true;
+		item.preprocessError = null;
 		item.preprocessProgress = null;
-
-		if (IMAGE_PREPROCESS_NEEDED_TYPES.includes(item.file.type)) {
+		item.preprocessedFile = null;
+		item.compressedSize = null;
+		item.suffix = '';
+		item.aborted = false;
+		item.abortPreprocess = () => controller.abort();
+		const run = async () => {
 			try {
-				await preprocessForImage(item);
+				if (controller.signal.aborted) throw new CompatibleVideoError('canceled');
+				if (IMAGE_PREPROCESS_NEEDED_TYPES.includes(item.file.type)) await preprocessForImage(item);
+				if (isVideo(item)) {
+					if (item.videoMode === 'legacy') {
+						await preprocessForVideo(item, controller.signal);
+					} else {
+						const result = await convertCompatibleVideo(item.file, item.compressionLevel, {
+							signal: controller.signal,
+							maxBytes: Math.min(instance.maxFileSize, $i.policies.maxFileSizeMb * 1024 * 1024),
+							onProgress: progress => { if (!controller.signal.aborted) item.preprocessProgress = progress; },
+						});
+						if (controller.signal.aborted || disposed) return;
+						updateItemObjectUrls(item, result);
+						item.preprocessedFile = markRaw(result);
+						item.compressedSize = result.size;
+						item.suffix = '.mp4';
+					}
+				}
 			} catch (err) {
-				console.error('Failed to preprocess image', err);
-
-			// nop
+				if (disposed || removedItems.has(item)) return;
+				console.error('Failed to preprocess file', err);
+				if (isVideo(item)) {
+					item.preprocessedFile = null;
+					item.compressedSize = null;
+					item.suffix = '';
+					updateItemObjectUrls(item, item.file);
+					item.preprocessError = err instanceof CompatibleVideoError && err.reason === 'tooLarge'
+						? i18n.ts._uploader.videoTooLarge
+						: err instanceof CompatibleVideoError && err.reason === 'hdr'
+							? i18n.ts._uploader.videoHdrUnsupported
+							: controller.signal.aborted ? i18n.ts._uploader.videoCanceled : i18n.ts._uploader.videoConversionFailed;
+				}
+			} finally {
+				item.preprocessing = false;
+				item.preprocessProgress = null;
+				item.abortPreprocess = null;
 			}
-		}
-
-		if (VIDEO_PREPROCESS_NEEDED_TYPES.includes(item.file.type)) {
-			try {
-				await preprocessForVideo(item);
-			} catch (err) {
-				console.error('Failed to preprocess video', err);
-
-				// nop
-			}
-		}
-
-		item.preprocessing = false;
-		item.preprocessProgress = null;
+		};
+		// Avoid simultaneous encoders and multiple full output buffers on mobile devices.
+		const task = isVideo(item) ? videoQueue.then(run) : run();
+		if (isVideo(item)) videoQueue = task;
+		preprocessingTasks.set(item, task);
+		return task;
 	}
 
 	async function preprocessForImage(item: UploaderItem): Promise<void> {
@@ -749,7 +838,7 @@ export function useUploader(options: {
 		item.preprocessedFile = markRaw(preprocessedFile);
 	}
 
-	async function preprocessForVideo(item: UploaderItem): Promise<void> {
+	async function preprocessForVideo(item: UploaderItem, signal: AbortSignal): Promise<void> {
 		let preprocessedFile: Blob | File = item.file;
 
 		const needsCompress = item.compressionLevel !== 0 && VIDEO_COMPRESSION_SUPPORTED_TYPES.includes(preprocessedFile.type);
@@ -785,16 +874,16 @@ export function useUploader(options: {
 
 			currentConversion.onProgress = newProgress => item.preprocessProgress = newProgress;
 
-			item.abortPreprocess = () => {
-				item.abortPreprocess = null;
-				currentConversion.cancel();
-				item.preprocessing = false;
-				item.preprocessProgress = null;
-			};
-
-			await currentConversion.execute();
-
-			item.abortPreprocess = null;
+			const cancel = () => { void currentConversion.cancel().catch(() => {}); };
+			signal.addEventListener('abort', cancel, { once: true });
+			try {
+				if (signal.aborted) throw new CompatibleVideoError('canceled');
+				await currentConversion.execute();
+				if (signal.aborted || disposed) throw new CompatibleVideoError('canceled');
+			} finally {
+				signal.removeEventListener('abort', cancel);
+				input.dispose();
+			}
 
 			preprocessedFile = new Blob([output.target.buffer!], { type: output.format.mimeType });
 			item.compressedSize = output.target.buffer!.byteLength;
@@ -810,6 +899,7 @@ export function useUploader(options: {
 
 	function reset() {
 		for (const item of items.value) {
+			removedItems.add(item);
 			revokeItemObjectUrls(item);
 		}
 
@@ -818,6 +908,8 @@ export function useUploader(options: {
 	}
 
 	function dispose() {
+		disposed = true;
+		window.removeEventListener('beforeunload', onBeforeUnload);
 		reset();
 	}
 
@@ -835,7 +927,7 @@ export function useUploader(options: {
 		upload,
 		getMenu,
 		uploading: computed(() => items.value.some(item => item.uploading)),
-		readyForUpload: computed(() => items.value.length > 0 && items.value.some(item => item.uploaded == null) && !items.value.some(item => item.uploading || item.preprocessing)),
+		readyForUpload: computed(() => items.value.length > 0 && items.value.some(item => item.uploaded == null) && !items.value.some(item => item.uploading || (item.preprocessing && !isVideo(item)))),
 		allItemsUploaded: computed(() => items.value.every(item => item.uploaded != null)),
 		events,
 	};

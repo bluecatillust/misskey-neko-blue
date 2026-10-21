@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <template>
 <div :class="$style.root" class="_gaps_s">
+	<MkInfo v-if="showKeepOpen && items.some(item => isVideoFile(item.file) && (item.preprocessing || item.uploading))" role="status">{{ i18n.ts._uploader.videoKeepOpen }}</MkInfo>
 	<div
 		v-for="displayItem in displayItems"
 		:key="displayItem.item.id"
 		v-panel
-		:class="[$style.item, { [$style.itemWaiting]: displayItem.item.preprocessing, [$style.itemCompleted]: displayItem.item.uploaded, [$style.itemFailed]: displayItem.item.uploadFailed }]"
+		:class="[$style.item, { [$style.itemWaiting]: displayItem.item.preprocessing, [$style.itemCompleted]: displayItem.item.uploaded, [$style.itemFailed]: displayItem.item.uploadFailed || displayItem.item.preprocessError }]"
 		:style="{
 			'--p': displayItem.item.progress != null ? `${displayItem.item.progress.value / displayItem.item.progress.max * 100}%` : '0%',
 			'--pp': displayItem.item.preprocessProgress != null ? `${displayItem.item.preprocessProgress * 100}%` : '100%',
@@ -31,17 +32,18 @@ SPDX-License-Identifier: AGPL-3.0-only
 				</div>
 				<div :class="$style.itemInfo">
 					<span>{{ displayItem.item.file.type }}</span>
-					<span v-if="displayItem.item.compressedSize">({{ i18n.tsx._uploader.compressedToX({ x: bytes(displayItem.item.compressedSize) }) }} = {{ i18n.tsx._uploader.savedXPercent({ x: Math.round((1 - displayItem.item.compressedSize / displayItem.item.file.size) * 100) }) }})</span>
+					<span v-if="displayItem.item.compressedSize && displayItem.item.videoMode === 'compatible' && displayItem.item.preprocessedFile?.type === 'video/mp4'">{{ i18n.tsx._uploader.videoOutputSize({ size: bytes(displayItem.item.compressedSize) }) }}</span>
+					<span v-else-if="displayItem.item.compressedSize">({{ i18n.tsx._uploader.compressedToX({ x: bytes(displayItem.item.compressedSize) }) }} = {{ i18n.tsx._uploader.savedXPercent({ x: Math.round((1 - displayItem.item.compressedSize / displayItem.item.file.size) * 100) }) }})</span>
 					<span v-else>{{ bytes(displayItem.item.file.size) }}</span>
-					<span v-if="displayItem.item.preprocessing">{{ i18n.ts.preprocessing }}<MkLoading inline em style="margin-left: 0.5em;"/></span>
+					<span v-if="isVideoFile(displayItem.item.file)">{{ displayItem.item.videoMode === 'legacy' ? i18n.ts._uploader.videoLegacy : i18n.ts._uploader.videoCompatible }}</span>
+					<span v-if="displayItem.item.preprocessing" role="status">{{ displayItem.item.videoMode === 'compatible' ? i18n.ts._uploader.videoProcessing : i18n.ts.preprocessing }}<span v-if="displayItem.item.preprocessProgress != null"> {{ Math.floor(displayItem.item.preprocessProgress * 100) }}%</span><MkLoading inline em style="margin-left: 0.5em;"/></span>
 				</div>
-				<div>
-				</div>
+				<div v-if="displayItem.item.preprocessError" role="alert">{{ displayItem.item.preprocessError }}</div>
 			</div>
 			<div :class="$style.itemIconWrapper">
 				<MkSystemIcon v-if="displayItem.item.uploading" :class="$style.itemIcon" type="waiting"/>
 				<MkSystemIcon v-else-if="displayItem.item.uploaded" :class="$style.itemIcon" type="success"/>
-				<MkSystemIcon v-else-if="displayItem.item.uploadFailed" :class="$style.itemIcon" type="error"/>
+				<MkSystemIcon v-else-if="displayItem.item.uploadFailed || displayItem.item.preprocessError" :class="$style.itemIcon" type="error"/>
 			</div>
 		</div>
 	</div>
@@ -52,17 +54,20 @@ SPDX-License-Identifier: AGPL-3.0-only
 import { computed } from 'vue';
 import { isLink } from '@@/js/is-link.js';
 import type { UploaderItem } from '@/composables/use-uploader.js';
+import { isVideoFile } from '@/utility/compatible-video.js';
 import { getUploadName } from '@/composables/use-uploader.js';
 import { i18n } from '@/i18n.js';
 import MkButton from '@/components/MkButton.vue';
+import MkInfo from '@/components/MkInfo.vue';
 import { isPreviewable, getType } from '@/utility/lightbox.js';
 import bytes from '@/filters/bytes.js';
 import * as os from '@/os.js';
 import type { Content } from '@/components/MkLightbox.item.vue';
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
 	items: UploaderItem[];
-}>();
+	showKeepOpen?: boolean;
+}>(), { showKeepOpen: true });
 
 const displayItems = computed(() => props.items.map(item => ({
 	item,

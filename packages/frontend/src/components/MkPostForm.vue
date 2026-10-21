@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 	@dragleave="onDragleave"
 	@drop.stop="onDrop"
 >
-	<header :class="$style.header">
+	<header :class="$style.header" :inert="submitting || posting">
 		<div :class="$style.headerLeft">
 			<button v-if="!fixed" :class="$style.cancel" class="_button" @click="cancel"><i class="ti ti-x"></i></button>
 			<button ref="accountMenuEl" v-click-anime v-tooltip="i18n.ts.account" class="_button" @click="openAccountMenu">
@@ -40,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			<button ref="submitButtonEl" v-click-anime class="_button" :class="$style.submit" :disabled="!canPost" data-testid="post-form-submit" @click="post">
 				<div :class="$style.submitInner">
 					<template v-if="posted"></template>
-					<template v-else-if="posting"><MkEllipsis/></template>
+					<template v-else-if="submitting || posting"><MkEllipsis/></template>
 					<template v-else>{{ submitText }}</template>
 					<i style="margin-left: 6px;" :class="submitIcon"></i>
 				</div>
@@ -49,8 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 	</header>
 	<MkNoteSimple v-if="replyTargetNote" :class="$style.targetNote" :note="replyTargetNote"/>
 	<MkNoteSimple v-if="renoteTargetNote" :class="$style.targetNote" :note="renoteTargetNote"/>
-	<div v-if="quoteId" :class="$style.withQuote"><i class="ti ti-quote"></i> {{ i18n.ts.quoteAttached }}<button @click="quoteId = null; renoteTargetNote = null;"><i class="ti ti-x"></i></button></div>
-	<div v-if="visibility === 'specified'" :class="$style.toSpecified">
+	<div v-if="quoteId" :class="$style.withQuote" :inert="submitting || posting"><i class="ti ti-quote"></i> {{ i18n.ts.quoteAttached }}<button @click="quoteId = null; renoteTargetNote = null;"><i class="ti ti-x"></i></button></div>
+	<div v-if="visibility === 'specified'" :class="$style.toSpecified" :inert="submitting || posting">
 		<span style="margin-right: 8px;">{{ i18n.ts.recipient }}</span>
 		<div :class="$style.visibleUsers">
 			<span v-for="u in visibleUsers" :key="u.id" :class="$style.visibleUser">
@@ -63,36 +63,38 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<MkInfo v-if="!store.r.tips.value.postForm" :class="$style.showHowToUse" closable @close="closeTip('postForm')">
 		<button class="_textButton" @click="showTour">{{ i18n.ts._postForm.showHowToUse }}</button>
 	</MkInfo>
-	<MkInfo v-if="scheduledAt != null" :class="$style.scheduledAt">
+	<MkInfo v-if="scheduledAt != null" :class="$style.scheduledAt" :inert="submitting || posting">
 		<I18n :src="i18n.ts.scheduleToPostOnX" tag="span">
 			<template #x>
 				<MkTime :time="scheduledAt" :mode="'detail'" style="font-weight: bold;"/>
 			</template>
 		</I18n> - <button class="_textButton" @click="cancelSchedule()">{{ i18n.ts.cancel }}</button>
 	</MkInfo>
-	<MkInfo v-if="hasNotSpecifiedMentions" warn :class="$style.hasNotSpecifiedMentions">{{ i18n.ts.notSpecifiedMentionWarning }} - <button class="_textButton" @click="addMissingMention()">{{ i18n.ts.add }}</button></MkInfo>
-	<div v-show="useCw" :class="$style.cwOuter">
+	<MkInfo v-if="hasNotSpecifiedMentions" :inert="submitting || posting" warn :class="$style.hasNotSpecifiedMentions">{{ i18n.ts.notSpecifiedMentionWarning }} - <button class="_textButton" @click="addMissingMention()">{{ i18n.ts.add }}</button></MkInfo>
+	<div v-show="useCw" :class="$style.cwOuter" :inert="submitting || posting">
 		<input ref="cwInputEl" v-model="cw" :class="$style.cw" :placeholder="i18n.ts.annotation" @keydown="onKeydown" @keyup="onKeyup" @compositionend="onCompositionEnd">
 		<div v-if="maxCwTextLength - cwTextLength < 20" :class="['_acrylic', $style.cwTextCount, { [$style.cwTextOver]: cwTextLength > maxCwTextLength }]">{{ maxCwTextLength - cwTextLength }}</div>
 	</div>
 	<div :class="[$style.textOuter, { [$style.withCw]: useCw }]">
 		<div v-if="targetChannel" :class="$style.colorBar" :style="{ background: targetChannel.color }"></div>
-		<textarea ref="textareaEl" v-model="text" :class="[$style.text]" :disabled="posting || posted" :readonly="textAreaReadOnly" :placeholder="placeholder" data-testid="post-form-text" @keydown="onKeydown" @keyup="onKeyup" @paste="onPaste" @compositionupdate="onCompositionUpdate" @compositionend="onCompositionEnd"></textarea>
+		<textarea ref="textareaEl" v-model="text" :class="[$style.text]" :disabled="submitting || posting || posted" :readonly="textAreaReadOnly" :placeholder="placeholder" data-testid="post-form-text" @keydown="onKeydown" @keyup="onKeyup" @paste="onPaste" @compositionupdate="onCompositionUpdate" @compositionend="onCompositionEnd"></textarea>
 		<div v-if="maxTextLength - textLength < 100" :class="['_acrylic', $style.textCount, { [$style.textOver]: textLength > maxTextLength }]">{{ maxTextLength - textLength }}</div>
 	</div>
-	<input v-show="withHashtags" ref="hashtagsInputEl" v-model="hashtags" :class="$style.hashtags" :placeholder="i18n.ts.hashtags" list="hashtags">
-	<XPostFormAttaches v-model="files" @detach="detachFile" @changeSensitive="updateFileSensitive" @changeName="updateFileName"/>
+	<input v-show="withHashtags" ref="hashtagsInputEl" v-model="hashtags" :disabled="submitting || posting" :class="$style.hashtags" :placeholder="i18n.ts.hashtags" list="hashtags">
+	<XPostFormAttaches v-model="files" :inert="submitting || posting" @detach="detachFile" @changeSensitive="updateFileSensitive" @changeName="updateFileName"/>
+	<MkInfo v-if="(submitting || posting) && hasVideoAttachment" role="status">{{ i18n.ts._uploader.videoKeepOpen }}</MkInfo>
+	<MkButton v-if="submitting && uploader.items.value.some(item => item.preprocessing || item.uploading)" @click="uploader.abortAll()">{{ i18n.ts.abort }}</MkButton>
 	<div v-if="uploader.items.value.length > 0" style="padding: 12px;">
 		<MkTip k="postFormUploader">
 			{{ i18n.ts._postForm.uploaderTip }}
 		</MkTip>
-		<MkUploaderItems :items="uploader.items.value" @showMenu="(item, ev) => showPerUploadItemMenu(item, ev)" @showMenuViaContextmenu="(item, ev) => showPerUploadItemMenuViaContextmenu(item, ev)"/>
+		<MkUploaderItems :inert="submitting || posting" :items="uploader.items.value" :showKeepOpen="!submitting && !posting" @showMenu="(item, ev) => showPerUploadItemMenu(item, ev)" @showMenuViaContextmenu="(item, ev) => showPerUploadItemMenuViaContextmenu(item, ev)"/>
 	</div>
-	<MkPollEditor v-if="poll" v-model="poll" @destroyed="poll = null"/>
+	<MkPollEditor v-if="poll" v-model="poll" :inert="submitting || posting" @destroyed="poll = null"/>
 	<MkNotePreview v-if="showPreview" :class="$style.preview" :text="text" :files="files" :poll="poll ?? undefined" :useCw="useCw" :cw="cw" :user="postAccount ?? $i"/>
 	<div v-if="showingOptions" style="padding: 8px 16px;">
 	</div>
-	<footer ref="footerEl" :class="$style.footer">
+	<footer ref="footerEl" :class="$style.footer" :inert="submitting || posting">
 		<div :class="$style.footerLeft">
 			<button v-tooltip="i18n.ts.attachFile + ' (' + i18n.ts.upload + ')'" class="_button" :class="$style.footerButton" @click="chooseFileFromPc"><i class="ti ti-photo-plus"></i></button>
 			<button v-tooltip="i18n.ts.attachFile + ' (' + i18n.ts.fromDrive + ')'" class="_button" :class="$style.footerButton" @click="chooseFileFromDrive"><i class="ti ti-cloud-download"></i></button>
@@ -121,6 +123,7 @@ import insertTextAtCursor from 'insert-text-at-cursor';
 import { toASCII } from 'punycode.js';
 import { host, url } from '@@/js/config.js';
 import MkUploaderItems from './MkUploaderItems.vue';
+import { isVideoFile } from '@/utility/compatible-video.js';
 import type { ShallowRef } from 'vue';
 import type { PostFormProps } from '@/types/post-form.js';
 import type { MenuItem } from '@/types/menu.js';
@@ -140,6 +143,7 @@ import { misskeyApi } from '@/utility/misskey-api.js';
 import { chooseDriveFile } from '@/utility/drive.js';
 import { store } from '@/store.js';
 import MkInfo from '@/components/MkInfo.vue';
+import MkButton from '@/components/MkButton.vue';
 import { i18n } from '@/i18n.js';
 import { instance } from '@/instance.js';
 import { ensureSignin, notesCount, incNotesCount } from '@/i.js';
@@ -231,11 +235,26 @@ let textAutocomplete: Autocomplete | null = null;
 let cwAutocomplete: Autocomplete | null = null;
 let hashtagAutocomplete: Autocomplete | null = null;
 
+const submitting = ref(false);
+const hasVideoAttachment = computed(() => uploader.items.value.some(item => isVideoFile(item.file)) || files.value.some(file => file.type.startsWith('video/')));
+let formDisposed = false;
+
+function onPostingBeforeUnload(ev: BeforeUnloadEvent) {
+	if (submitting.value || posting.value) {
+		ev.preventDefault();
+		ev.returnValue = '';
+	}
+}
+
+onMounted(() => window.addEventListener('beforeunload', onPostingBeforeUnload));
+
 const uploader = useUploader({
 	multiple: true,
 });
 
 onUnmounted(() => {
+	formDisposed = true;
+	window.removeEventListener('beforeunload', onPostingBeforeUnload);
 	uploader.dispose();
 });
 
@@ -307,7 +326,7 @@ const cwTextLength = computed((): number => {
 const maxCwTextLength = 100;
 
 const canPost = computed((): boolean => {
-	return !props.mock && !posting.value && !posted.value && !uploader.uploading.value && (uploader.items.value.length === 0 || uploader.readyForUpload.value) &&
+	return !props.mock && !submitting.value && !posting.value && !posted.value && !uploader.uploading.value && (uploader.items.value.length === 0 || uploader.readyForUpload.value) &&
 		(
 			1 <= textLength.value ||
 			1 <= files.value.length ||
@@ -841,6 +860,10 @@ function onDragleave() {
 }
 
 function onDrop(ev: DragEvent): void {
+	if (submitting.value || posting.value) {
+		ev.preventDefault();
+		return;
+	}
 	draghover.value = false;
 
 	// ファイルだったら
@@ -945,6 +968,7 @@ function isAnnoying(text: string): boolean {
 
 async function uploadFiles() {
 	await uploader.upload();
+	if (formDisposed) throw new Error('Post form closed');
 
 	for (const uploadedItem of uploader.items.value.filter(x => x.uploaded != null)) {
 		files.value.push(uploadedItem.uploaded!);
@@ -953,6 +977,19 @@ async function uploadFiles() {
 }
 
 async function post(ev?: PointerEvent) {
+	if (submitting.value || posting.value || posted.value) return;
+	submitting.value = true;
+	try {
+		await postInternal(ev);
+	} catch (err) {
+		// Upload and conversion errors are shown by the uploader. Keep the draft.
+		console.error('Post preparation failed', err);
+	} finally {
+		submitting.value = false;
+	}
+}
+
+async function postInternal(ev?: PointerEvent) {
 	if (ev != null) {
 		const el = (ev.currentTarget ?? ev.target) as HTMLElement | null;
 

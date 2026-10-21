@@ -19,6 +19,8 @@
 	},
 	"dependencies": {
 		"@analytics/google-analytics": "1.1.0",
+		"@ffmpeg/core": "0.12.10",
+		"@ffmpeg/ffmpeg": "0.12.15",
 		"@mcaptcha/core-glue": "0.1.0-alpha-5",
 		"@misskey-dev/browser-image-resizer": "2024.1.0",
 		"@misskey-dev/emoji-data": "17.0.3",
