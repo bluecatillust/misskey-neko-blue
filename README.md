@@ -1,9 +1,3 @@
-> [!NOTE]
-> This repository contains the Misskey 2026.9.1 source used for the
-> `neko.blue` instance, including local modifications. See
-> [LOCAL_CHANGES.md](./LOCAL_CHANGES.md) for the exact changes and upstream
-> reference.
-
 <div align="center">
 <a href="https://misskey-hub.net">
 	<img src="./assets/title_float.svg" alt="Misskey logo" style="border-radius:50%" width="300"/>

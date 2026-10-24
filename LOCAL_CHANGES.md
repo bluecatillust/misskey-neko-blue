@@ -6,9 +6,19 @@ Misskey version used by `neko.blue`.
 ## Base version
 
 - Upstream project: <https://github.com/misskey-dev/misskey>
-- Misskey version: `2026.10.0`
-- Upstream commit: `de89118a225fbe0833e42ab94e8d5af1e5211208`
+- Misskey version: `2026.10.1`
+- Upstream commit: `4840fa6d576128ba916ba69169258ca177d40faf`
 - License: GNU Affero General Public License v3.0 (`AGPL-3.0-only`)
+
+The 2026.10.1 update imports the source snapshot used for the server upgrade
+(Git tree `a5195839e165d5129ffc677961533d30c971aa71`). The existing GitHub
+reaction-statistics normalization, local-emoji formatting when sharing rankings,
+regression tests and this document are retained in addition to that snapshot.
+As in earlier public updates, upstream release/deployment workflows and editor
+settings are not enabled by this source publication.
+The new shared MFM renderer keeps the remote-to-local emoji reaction policy,
+renote payloads retain all of the viewer's reactions, and profile cropping
+continues to respect upstream's sensitive-file selection restrictions.
 
 ## Local modifications
 
@@ -98,7 +108,7 @@ emoji by one user on one note remains disallowed. The note API and streaming
 payloads expose all reactions selected by the current user, and retain the
 single-reaction field for compatibility with older clients.
 
-For Misskey 2026.10.0, the aggregate reaction updates also retain upstream's
+For Misskey 2026.10.1, the aggregate reaction updates also retain upstream's
 parameterized SQL handling for reaction names and user/reaction cache pairs.
 
 ### Keep the reaction picker open after selection
@@ -203,7 +213,10 @@ instructions are maintained in the
 
 ## Build and configuration
 
-Follow the upstream installation and build instructions for Misskey 2026.10.0.
+Follow the upstream installation and build instructions for Misskey 2026.10.1.
+The repository selects Node.js 26.12.1 and pnpm 12.14.0. Its supported Node.js
+minimums are 22.23.4, 24.22.1 or 26.12.1 for their respective release lines.
+Review upstream's Sentry configuration changes if that integration is enabled.
 Install dependencies from the lockfile before building this video-enabled source.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
@@ -211,3 +224,16 @@ credentials, uploaded files, and database contents must remain private.
 
 The complete local code changes can be reviewed by comparing this source tree
 with the upstream commit shown above.
+
+### Validation of the 2026.10.1 publication
+
+- PASS: complete build, API/client regeneration, backend/frontend/shared type
+  checks, 201 frontend tests, changed-file lint and SPDX checks.
+- BASELINE: the locale-safety check flags 27 non-Japanese files imported from
+  upstream; every one was verified identical to the official 2026.10.1 tag.
+  No non-Japanese translations were edited manually.
+- SKIPPED: local database migration/e2e validation; no local PostgreSQL/Redis
+  test services are available. The ReactionService suite could not start for
+  that reason (25 tests skipped), so it is not counted as passing. The shared
+  server-upgrade record reports successful migrations and a clean schema for
+  the imported source snapshot; this is not a new production-server test.
