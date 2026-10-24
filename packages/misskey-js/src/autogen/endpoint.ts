@@ -294,6 +294,8 @@ import type {
 	DriveFilesCreateRequest,
 	DriveFilesCreateResponse,
 	DriveFilesDeleteRequest,
+	DriveFilesDetectImageRequest,
+	DriveFilesDetectImageResponse,
 	DriveFilesFindRequest,
 	DriveFilesFindResponse,
 	DriveFilesFindByHashRequest,
@@ -864,6 +866,7 @@ export type Endpoints = {
 	'drive/files/check-existence': { req: DriveFilesCheckExistenceRequest; res: DriveFilesCheckExistenceResponse };
 	'drive/files/create': { req: DriveFilesCreateRequest; res: DriveFilesCreateResponse };
 	'drive/files/delete': { req: DriveFilesDeleteRequest; res: EmptyResponse };
+	'drive/files/detect-image': { req: DriveFilesDetectImageRequest; res: DriveFilesDetectImageResponse };
 	'drive/files/find': { req: DriveFilesFindRequest; res: DriveFilesFindResponse };
 	'drive/files/find-by-hash': { req: DriveFilesFindByHashRequest; res: DriveFilesFindByHashResponse };
 	'drive/files/move-bulk': { req: DriveFilesMoveBulkRequest; res: EmptyResponse };

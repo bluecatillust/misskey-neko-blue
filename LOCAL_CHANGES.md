@@ -211,6 +211,68 @@ Dependencies are pinned in `packages/frontend/package.json` and `pnpm-lock.yaml`
 instructions are maintained in the
 [ffmpeg.wasm repository](https://github.com/ffmpegwasm/ffmpeg.wasm).
 
+### Manually classify an owned Drive image and share its scores
+
+Files:
+
+- `packages/backend/src/server/api/endpoints/drive/files/detect-image.ts`
+- `packages/backend/src/server/api/endpoint-list.ts`
+- `packages/frontend/src/utility/get-drive-file-menu.ts`
+- `packages/frontend/src/utility/detect-drive-image.ts`
+- `packages/misskey-js/src/autogen/`
+- `scripts/test-image-detection.mjs`
+
+The Drive file menu offers manual image classification for supported still
+images. The authenticated API checks ownership, including for moderators,
+before reading the original. It validates both the declared and detected MIME
+types, rejects animated/multipage images, and limits input to 20 MiB and
+40 million pixels. JPEG, PNG, WebP, AVIF, TIFF, BMP and ICO are offered; videos,
+GIF and APNG are not. Animation that cannot be identified from the menu's MIME
+type alone is rejected by the server.
+
+Images use the existing automatic detector's preprocessing: 299 x 299 pixels,
+orientation correction and gray background for transparency. The existing
+configured sensitive-detector service is called server-side; its API key is
+never sent to the browser. Missing, invalid or failed predictions produce an
+error instead of zero scores. No classification result is saved and none of
+`isSensitive`, `maybeSensitive` or `maybePorn` is changed.
+
+The dialog displays Neutral, Drawing, Hentai, Porn and Sexy in that order as
+percentages with two decimal places, under the title
+`画像判定結果（機械学習による参考値）`. Acknowledge closes the dialog. Share
+opens the normal post composer with the displayed text and the analyzed file;
+it does not publish automatically or override the normal visibility setting.
+The file is refreshed before sharing to preserve its current sensitive flag.
+
+This is the simplified implementation applied in the shared server-update
+record: no result cache or custom server-wide concurrency queue is added.
+Repeated clicks on the same image in one client are coalesced. The standard
+Misskey API rate limit is 3 requests per minute at `rateLimitFactor: 1`; role
+coefficients and the existing production-mode limiter still apply. It is not
+a fixed limit independent of those settings. The browser waits up to 150
+seconds; detector-side requests use the existing server timeout setting.
+
+Run `node scripts/test-image-detection.mjs .` from the repository root for the
+29 isolated mock-based regression checks. They cover ownership, input limits,
+prediction validation, temporary-file cleanup, close/share behavior and
+duplicate clicks, but do not replace live database/HTTP or UI integration tests.
+This feature adds no database schema or migration changes. The detector's
+installation, API key, runtime configuration and role settings remain private
+deployment concerns and are not included in this publication.
+
+Known limit of the deployed implementation: for originals in external storage,
+the 20 MiB check is repeated after downloading the original. Transfer itself
+uses the existing server-wide `maxFileSize` limit, not a dedicated 20 MiB stream
+limit. If the stored size and the actual object differ, more than 20 MiB may be
+downloaded before rejection. This publication preserves the deployed source;
+per-request transfer limiting would be a separate server change.
+
+Publication validation: PASS for all 29 isolated checks, 201 existing frontend
+tests, backend/frontend type checks, API/client regeneration, backend/frontend
+builds, changed-file lint, SPDX and locale-safety checks. Live HTTP/DB and
+production UI revalidation were SKIPPED here (no local test services and no
+production changes); the shared chat records successful server-side testing.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.10.1.

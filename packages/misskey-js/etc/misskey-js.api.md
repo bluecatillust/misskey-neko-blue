@@ -1315,6 +1315,12 @@ type DriveFilesCreateResponse = operations['drive___files___create']['responses'
 type DriveFilesDeleteRequest = operations['drive___files___delete']['requestBody']['content']['application/json'];
 
 // @public (undocumented)
+type DriveFilesDetectImageRequest = operations['drive___files___detect-image']['requestBody']['content']['application/json'];
+
+// @public (undocumented)
+type DriveFilesDetectImageResponse = operations['drive___files___detect-image']['responses']['200']['content']['application/json'];
+
+// @public (undocumented)
 type DriveFilesFindByHashRequest = operations['drive___files___find-by-hash']['requestBody']['content']['application/json'];
 
 // @public (undocumented)
@@ -1840,6 +1846,8 @@ declare namespace entities {
         DriveFilesCreateRequest,
         DriveFilesCreateResponse,
         DriveFilesDeleteRequest,
+        DriveFilesDetectImageRequest,
+        DriveFilesDetectImageResponse,
         DriveFilesFindRequest,
         DriveFilesFindResponse,
         DriveFilesFindByHashRequest,

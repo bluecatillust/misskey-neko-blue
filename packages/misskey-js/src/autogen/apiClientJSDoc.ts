@@ -2162,6 +2162,17 @@ declare module '../api.js' {
     ): Promise<SwitchCaseResponseType<E, P>>;
 
     /**
+     * Analyze an owned still image and return classification scores without changing the file.
+     * 
+     * **Credential required**: *Yes* / **Permission**: *read:drive*
+     */
+    request<E extends 'drive/files/detect-image', P extends Endpoints[E]['req']>(
+      endpoint: E,
+      params: P,
+      credential?: string | null,
+    ): Promise<SwitchCaseResponseType<E, P>>;
+
+    /**
      * Search for a drive file by the given parameters.
      * 
      * **Credential required**: *Yes* / **Permission**: *read:drive*

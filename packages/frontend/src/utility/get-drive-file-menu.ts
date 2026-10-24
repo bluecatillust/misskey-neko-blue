@@ -13,6 +13,7 @@ import * as os from '@/os.js';
 import { misskeyApi } from '@/utility/misskey-api.js';
 import { prefer } from '@/preferences.js';
 import { globalEvents } from '@/events.js';
+import { canDetectDriveImage, detectDriveImage } from '@/utility/detect-drive-image.js';
 
 function rename(file: Misskey.entities.DriveFile) {
 	os.inputText({
@@ -125,6 +126,14 @@ export function getDriveFileMenu(file: Misskey.entities.DriveFile, folder?: Miss
 		icon: 'ti ti-text-caption',
 		action: () => describe(file),
 	});
+
+	if (canDetectDriveImage(file)) {
+		menuItems.push({
+			text: '画像判定',
+			icon: 'ti ti-scan',
+			action: () => detectDriveImage(file),
+		});
+	}
 
 	menuItems.push({ type: 'divider' }, {
 		text: i18n.ts.createNoteFromTheFile,
