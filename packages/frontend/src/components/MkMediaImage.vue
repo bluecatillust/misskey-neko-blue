@@ -113,10 +113,15 @@ const url = computed(() => {
 		return getStaticImageUrl(props.image.url);
 	}
 
-	// iOS Safariでは、センシティブなアニメーション画像を
-	// 非表示状態から解除した際にthumbnailUrlのアニメーションが
-	// 開始されない場合があるため、解除後は元画像を使用する
-	if (props.image.isSensitive && isAnimatedImage.value && !hide.value) {
+	// GIF/WebPは、センシティブかどうかにかかわらず表示時に元画像を使用する。
+	// APNGは従来どおり、センシティブの表示解除後に元画像を使用する。
+	if (
+		!hide.value &&
+		(
+			['image/gif', 'image/webp'].includes(props.image.type) ||
+			(props.image.isSensitive && isAnimatedImage.value)
+		)
+	) {
 		return props.image.url;
 	}
 

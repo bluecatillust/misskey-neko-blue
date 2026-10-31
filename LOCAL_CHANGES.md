@@ -135,16 +135,30 @@ crops use 2:1. Cropped images are saved as new Drive files in the original
 folder, while choosing not to crop keeps the original file. Non-image files and
 image-loading failures are handled with an error message.
 
-### Resume sensitive animated images after reveal
+### Use original GIF/WebP images when visible and resume sensitive APNG
 
 File:
 `packages/frontend/src/components/MkMediaImage.vue`
 
-After a sensitive GIF or APNG is revealed in the timeline, the frontend uses
-the original animated image URL instead of the thumbnail URL. This works around
-animation playback remaining stuck on the first frame in iOS Safari. The
-preference to disable animated-image playback still takes priority, and the
-original file is loaded only after the user reveals sensitive animated media.
+When a GIF or WebP is visible in the timeline, the frontend uses its original
+URL instead of the thumbnail URL, regardless of its sensitive flag. This avoids
+losing animation through a still thumbnail. MIME types alone do not distinguish
+animated from still files, so still GIF/WebP images also use their originals;
+bandwidth and memory use may increase. The display frame size is unchanged.
+
+APNG retains the earlier workaround: a sensitive APNG uses the original after
+reveal, while a non-sensitive APNG follows the normal thumbnail path. Hidden
+images do not opt into originals through this new branch, and existing sensitive
+visibility/login protection and data-saver behavior are unchanged. The normal
+`disableShowingAnimatedImages` branch remains before this workaround. Explicit
+`raw` or `loadRawImages` still has the pre-existing highest priority, including
+over the animation-disable preference; this update does not change that order.
+
+URL selection is covered by 14 regression cases in
+`packages/frontend/test/unit/media-image-url.test.ts`. The publication passed
+all 215 frontend tests, frontend type checking/build, changed-file lint, SPDX
+and locale-safety checks. Actual browser animation playback was not re-tested
+against the production server by this publication.
 
 ### Show a reaction ranking on the profile reactions tab
 
