@@ -353,7 +353,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 									style: 'margin-right: 0.25em;',
 								}),
 								h(Time, {
-									key: Math.random(),
 									time: unixtime * 1000,
 									mode: 'detail',
 								}),
@@ -394,7 +393,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 
 				case 'url': {
 					return [h(Url, {
-						key: Math.random(),
 						url: token.props.url,
 						rel: 'nofollow noopener',
 						...linkProps,
@@ -405,7 +403,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 					// スロット関数の中で genEl を呼ぶと再描画されるたびに子の VNode が作り直される
 					const linkChildren = genEl(token.children, scale, true);
 					return [h(Link, {
-						key: Math.random(),
 						url: token.props.url,
 						rel: 'nofollow noopener',
 						...linkProps,
@@ -414,7 +411,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 
 				case 'mention': {
 					return [h(Mention, {
-						key: Math.random(),
 						host: (token.props.host == null && props.author && props.author.host != null ? props.author.host : token.props.host) ?? host,
 						username: token.props.username,
 						...linkProps,
@@ -423,7 +419,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 
 				case 'hashtag': {
 					return [h(A, {
-						key: Math.random(),
 						to: isNote ? `/tags/${encodeURIComponent(token.props.hashtag)}` : `/user-tags/${encodeURIComponent(token.props.hashtag)}`,
 						style: 'color:var(--MI_THEME-hashtag);',
 						...hashtagProps,
@@ -433,12 +428,10 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 				case 'blockCode': {
 					if (Code == null) {
 						return [h('code', {
-							key: Math.random(),
 							lang: token.props.lang ?? undefined,
 						}, token.props.code)];
 					}
 					return [h(Code, {
-						key: Math.random(),
 						code: token.props.code,
 						lang: token.props.lang ?? undefined,
 					})];
@@ -447,11 +440,9 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 				case 'inlineCode': {
 					if (CodeInline == null) {
 						return [h('code', {
-							key: Math.random(),
 						}, token.props.code)];
 					}
 					return [h(CodeInline, {
-						key: Math.random(),
 						code: token.props.code,
 					})];
 				}
@@ -471,7 +462,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 				case 'emojiCode': {
 					if (props.author?.host == null) {
 						return [h(CustomEmoji, {
-							key: Math.random(),
 							name: token.props.name,
 							normal: props.plain,
 							host: null,
@@ -485,7 +475,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 							return [h('span', `:${token.props.name}:`)];
 						} else {
 							return [h(CustomEmoji, {
-								key: Math.random(),
 								name: token.props.name,
 								url: props.emojiUrls && props.emojiUrls[token.props.name],
 								normal: props.plain,
@@ -502,7 +491,6 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 
 				case 'unicodeEmoji': {
 					return [h(Emoji, {
-						key: Math.random(),
 						emoji: token.props.emoji,
 						...emojiMenuProps,
 					})];
@@ -518,12 +506,9 @@ export function createMfmRenderer<P extends MfmBaseProps = MfmBaseProps>(config:
 
 				case 'search': {
 					if (Search == null) {
-						return [h('div', {
-							key: Math.random(),
-						}, token.props.query)];
+						return [h('div', token.props.query)];
 					}
 					return [h(Search, {
-						key: Math.random(),
 						q: token.props.query,
 					})];
 				}

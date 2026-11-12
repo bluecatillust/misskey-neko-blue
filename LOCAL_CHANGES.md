@@ -6,11 +6,11 @@ Misskey version used by `neko.blue`.
 ## Base version
 
 - Upstream project: <https://github.com/misskey-dev/misskey>
-- Misskey version: `2026.10.1`
-- Upstream commit: `4840fa6d576128ba916ba69169258ca177d40faf`
+- Misskey version: `2026.11.0-neko.blue` (upstream `2026.11.0`)
+- Upstream commit: `dd7b4905d715d2587fa2f2cb6a88ecac8878ef0d`
 - License: GNU Affero General Public License v3.0 (`AGPL-3.0-only`)
 
-The 2026.10.1 update imports the source snapshot used for the server upgrade
+The earlier 2026.10.1 update imported the source snapshot used for that upgrade
 (Git tree `a5195839e165d5129ffc677961533d30c971aa71`). The existing GitHub
 reaction-statistics normalization, local-emoji formatting when sharing rankings,
 regression tests and this document are retained in addition to that snapshot.
@@ -19,6 +19,16 @@ settings are not enabled by this source publication.
 The new shared MFM renderer keeps the remote-to-local emoji reaction policy,
 renote payloads retain all of the viewer's reactions, and profile cropping
 continues to respect upstream's sensitive-file selection restrictions.
+
+The 2026.11.0 update imports the same update patch used for the VPS upgrade,
+based on public commit `2f3f37dcaf6e166b74f6d0a53a9ec99308ee8419`.
+The patch SHA-256 is
+`631aeb86a8bc95b226e253edfc4c2adaa8f8227066917a1dcde01834272f3711`.
+It retains all customizations below, including the later image-classification
+and GIF/WebP original-image changes. Upstream's recursive `withMyPollVotes`
+fix and the local multiple-reaction helpers coexist in `NoteEntityService`.
+The application reports `2026.11.0-neko.blue`; the suffix identifies this
+modified distribution rather than changing the upstream base release.
 
 ## Local modifications
 
@@ -289,11 +299,16 @@ production changes); the shared chat records successful server-side testing.
 
 ## Build and configuration
 
-Follow the upstream installation and build instructions for Misskey 2026.10.1.
-The repository selects Node.js 26.12.1 and pnpm 12.14.0. Its supported Node.js
-minimums are 22.23.4, 24.22.1 or 26.12.1 for their respective release lines.
+Follow the upstream installation and build instructions for Misskey 2026.11.0.
+The repository selects Node.js 26.13.1 and pnpm 12.17.0. Its supported Node.js
+release lines are 24 (24.22.3 or newer) and 26 (26.13.1 or newer).
 Review upstream's Sentry configuration changes if that integration is enabled.
 Install dependencies from the lockfile before building this video-enabled source.
+The official `scripts/start.mjs` entry point supports direct startup with
+`NODE_ENV=production node ./scripts/start.mjs`, avoiding the package-manager
+wrapper. This publication includes that upstream script, not the VPS-specific
+systemd drop-in, Node.js installer or runtime paths. The shared update record
+reports that the VPS now uses Node.js 26.13.1 and this direct startup method.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
 credentials, uploaded files, and database contents must remain private.
@@ -301,7 +316,26 @@ credentials, uploaded files, and database contents must remain private.
 The complete local code changes can be reviewed by comparing this source tree
 with the upstream commit shown above.
 
-### Validation of the 2026.10.1 publication
+### Validation of the 2026.11.0 publication
+
+- PASS with Node.js 26.13.1 and pnpm 12.17.0: frozen-lockfile installation,
+  complete build, API/client regeneration, backend/frontend/shared type checks,
+  all 215 frontend tests and the 29 isolated image-classification checks.
+- PASS: the merge regression check verifies upstream's recursive poll fix,
+  preservation of the existing multiple-reaction helpers, nested payloads and
+  reaction hints. Changed-file lint, SPDX and locale safety also pass.
+- PASS: the imported source still matches the applied VPS update patch. The
+  changed historical migration and the new migration/helper are verbatim
+  upstream 2026.11.0, not locally rewritten migration history. No non-Japanese
+  locale files were changed by this update.
+- UNAVAILABLE/SKIPPED: the local migration-schema check could not connect to
+  the test database at `127.0.0.1:54312`; it is not counted as passing. HTTP/DB
+  e2e and production UI verification were not re-run here. The shared VPS
+  update record reports committed migrations, successful startup and the
+  expected version from the production API. This publication does not change
+  the running server, its runtime installation or its systemd settings.
+
+### Historical validation of the 2026.10.1 publication
 
 - PASS: complete build, API/client regeneration, backend/frontend/shared type
   checks, 201 frontend tests, changed-file lint and SPDX checks.
