@@ -299,6 +299,26 @@ production changes); the shared chat records successful server-side testing.
 
 ### Completely hide muted emojis (optional hard-mute mode)
 
+Files:
+
+- `locales/ja-JP.yml`
+- `packages/frontend/src/components/MkEmojiPicker.section.vue`
+- `packages/frontend/src/components/MkEmojiPicker.vue`
+- `packages/frontend/src/components/MkNoteDetailed.vue`
+- `packages/frontend/src/components/MkNotification.vue`
+- `packages/frontend/src/components/MkReactionsViewer.reaction.vue`
+- `packages/frontend/src/components/MkReactionsViewer.vue`
+- `packages/frontend/src/components/global/MkCustomEmoji.vue`
+- `packages/frontend/src/components/global/MkEmoji.vue`
+- `packages/frontend/src/pages/chat/XMessage.vue`
+- `packages/frontend/src/pages/settings/mute-block.emoji-mute.vue`
+- `packages/frontend/src/pages/user/reactions.vue`
+- `packages/frontend/src/preferences/def.ts`
+- `packages/frontend/src/utility/emoji-mute.ts`
+- `packages/frontend/test/setup.unit.ts`
+- `packages/frontend/test/unit/hard-emoji-mute.test.ts`
+- `packages/i18n/src/autogen/locale.ts`
+
 Settings > Mute and block > Emoji mute adds
 `ミュートした絵文字を完全に非表示にする`. It reuses the existing mute list,
 defaults to OFF and is not synchronized between devices. OFF retains the usual
@@ -320,7 +340,8 @@ attributes and load listeners through a single conditional root, preserving
 thumbnail sizes and the earlier wide-emoji picker behavior. Hard-muted emoji
 still render no element.
 
-This publication imports the two patches applied in the shared VPS chat:
+Supplemental provenance: the files above include the changes from the two
+patches applied in the shared VPS chat:
 
 - `hard-emoji-mute-2026.11.0-neko-blue-v2.patch`, SHA-256
   `9b8467393e4ba7edefd2e5865ca1ac5d93605242e868e5d1ae29021fcac4a644`.
