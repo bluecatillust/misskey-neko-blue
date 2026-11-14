@@ -421,6 +421,9 @@ export const PREF_DEF = definePreferences({
 			return [...new Set(a.concat(b))];
 		},
 	},
+	hardMuteEmojis: {
+		default: false,
+	},
 	watermarkPresets: {
 		accountDependent: true,
 		default: [] as WatermarkPreset[],

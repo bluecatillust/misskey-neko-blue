@@ -4,8 +4,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
+<template v-if="shouldHardMute"></template>
 <img
-	v-if="shouldMute"
+	v-else-if="shouldMute"
 	:class="[$style.root, { [$style.normal]: normal, [$style.noStyle]: noStyle }]"
 	src="/client-assets/unknown.png"
 	:title="alt"
@@ -73,6 +74,7 @@ const isLocal = computed(() => isLocalCustomEmojiName(customEmojiName.value, pro
 const emojiCodeToMute = computed(() => makeEmojiMuteKey(props));
 const isMuted = checkEmojiMuted(emojiCodeToMute);
 const shouldMute = computed(() => !props.ignoreMuted && isMuted.value);
+const shouldHardMute = computed(() => shouldMute.value && prefer.r.hardMuteEmojis.value);
 
 const rawUrl = computed(() => {
 	if (props.url) {

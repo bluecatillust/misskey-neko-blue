@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 				<span>{{ i18n.ts.sentReactionsCount }}</span>
 				<strong :class="$style.statsTotal">{{ number(stats.total) }}</strong>
 			</div>
-			<template v-if="stats.reactions.length > 0">
+			<template v-if="visibleRanking.length > 0">
 				<div :class="$style.rankingHeader">
 					<div :class="$style.rankingTitle">{{ i18n.ts.ranking }}</div>
 					<button class="_button" :class="$style.shareButton" type="button" @click="shareRanking">
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 					</button>
 				</div>
 				<div :class="$style.ranking">
-					<div v-for="item in stats.reactions" :key="item.reaction" :class="$style.rankingItem">
+					<div v-for="item in visibleRanking" :key="item.reaction" :class="$style.rankingItem">
 						<MkReactionIcon :class="$style.rankingReaction" :reaction="item.reaction" :noStyle="true"/>
 						<span :class="$style.rankingCount">{{ number(item.count) }}</span>
 					</div>
@@ -56,6 +56,7 @@ import { i18n } from '@/i18n.js';
 import { $i } from '@/i.js';
 import number from '@/filters/number.js';
 import * as os from '@/os.js';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 const props = defineProps<{
 	user: Misskey.entities.User;
@@ -63,6 +64,7 @@ const props = defineProps<{
 
 const isSelf = computed(() => $i?.id === props.user.id);
 const stats = ref<Misskey.Endpoints['i/reaction-stats']['res'] | null>(null);
+const visibleRanking = computed(() => stats.value?.reactions.filter(item => !isHardMuted(item.reaction)) ?? []);
 const fetchingStats = ref(false);
 const statsError = ref(false);
 

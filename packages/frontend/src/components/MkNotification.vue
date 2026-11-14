@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 		<MkAvatar v-else-if="'user' in notification" :class="$style.icon" :user="notification.user" link preview/>
 		<img v-else-if="'icon' in notification && notification.icon != null" :class="[$style.icon, $style.icon_app]" :src="notification.icon" alt=""/>
 		<div
+			v-if="notification.type !== 'reaction' || !isHardMuted(notification.reaction)"
 			:class="[$style.subIcon, {
 				[$style.t_follow]: notification.type === 'follow',
 				[$style.t_followRequestAccepted]: notification.type === 'followRequestAccepted',
@@ -155,7 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			<div v-if="notification.type === 'reaction:grouped'">
 				<div v-for="reaction of notification.reactions" :key="reaction.user.id + reaction.reaction" :class="$style.reactionsItem">
 					<MkAvatar :class="$style.reactionsItemAvatar" :user="reaction.user" link preview/>
-					<div :class="$style.reactionsItemReaction">
+					<div v-if="!isHardMuted(reaction.reaction)" :class="$style.reactionsItemReaction">
 						<MkReactionIcon
 							:withTooltip="true"
 							:reaction="reaction.reaction.replace(/^:(\w+):$/, ':$1@.:')"
@@ -186,6 +187,7 @@ import { userPage } from '@@/js/user.js';
 import { i18n } from '@/i18n.js';
 import { misskeyApi } from '@/utility/misskey-api.js';
 import { ensureSignin } from '@/i.js';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 const $i = ensureSignin();
 

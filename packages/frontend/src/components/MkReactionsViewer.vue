@@ -40,6 +40,7 @@ import { $i } from '@/i.js';
 import { prefer } from '@/preferences.js';
 import { customEmojisMap } from '@/custom-emojis.js';
 import { DI } from '@/di.js';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 const props = withDefaults(defineProps<{
 	noteId: Misskey.entities.Note['id'];
@@ -86,7 +87,16 @@ function canReact(reaction: string) {
 		: isSupportedEmoji(reaction);
 }
 
-watch([() => props.reactions, () => props.maxNumber, () => props.myReactions], ([newSource, maxNumber]) => {
+watch([
+	() => props.reactions,
+	() => props.maxNumber,
+	() => props.myReactions,
+	() => props.myReaction,
+	prefer.r.hardMuteEmojis,
+	prefer.r.mutingEmojis,
+], ([source, maxNumber]) => {
+	// 表示上限を適用する前に除外する。自分が付けたリアクションも例外にしない。
+	const newSource = Object.fromEntries(Object.entries(source).filter(([reaction]) => !isHardMuted(reaction)));
 	let newReactions: [string, number][] = [];
 	hasMoreReactions.value = Object.keys(newSource).length > maxNumber;
 
@@ -124,7 +134,7 @@ watch([() => props.reactions, () => props.maxNumber, () => props.myReactions], (
 	newReactions = newReactions.slice(0, props.maxNumber);
 
 	for (const reaction of props.myReactions ?? (props.myReaction ? [props.myReaction] : [])) {
-		if (!newReactions.some(([x]) => x === reaction)) {
+		if (!isHardMuted(reaction) && !newReactions.some(([x]) => x === reaction)) {
 			newReactions.push([reaction, newSource[reaction]]);
 		}
 	}

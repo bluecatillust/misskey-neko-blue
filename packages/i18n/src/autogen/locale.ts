@@ -5561,6 +5561,14 @@ export interface Locale extends ILocale {
      */
     "emojiMute": string;
     /**
+     * ミュートした絵文字を完全に非表示にする
+     */
+    "hardMuteEmojis": string;
+    /**
+     * ミュート一覧の絵文字を、代替アイコンも含めて非表示にします。リアクションはボタンと件数ごと非表示になります。解除用の一覧では表示されます。この切り替え状態はデバイス間で同期されません。
+     */
+    "hardMuteEmojisDescription": string;
+    /**
      * 絵文字ミュート解除
      */
     "emojiUnmute": string;

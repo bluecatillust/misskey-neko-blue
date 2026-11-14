@@ -5,6 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-only
 
 <template>
 <div class="_gaps_m">
+	<SearchMarker :label="i18n.ts.hardMuteEmojis" :keywords="['emoji', 'mute', 'hard', 'hide']">
+		<MkSwitch v-model="hardMuteEmojis">
+			<template #label>{{ i18n.ts.hardMuteEmojis }}</template>
+			<template #caption>{{ i18n.ts.hardMuteEmojisDescription }}</template>
+		</MkSwitch>
+	</SearchMarker>
+
 	<div :class="$style.emojis">
 		<div v-for="emoji in emojis" :key="`emojiMute-${emoji}`" :class="$style.emoji" @click="onEmojiClick($event, emoji)">
 			<MkCustomEmoji
@@ -54,6 +61,7 @@ import {
 } from '@/utility/emoji-mute.js';
 
 const emojis = prefer.model('mutingEmojis');
+const hardMuteEmojis = prefer.model('hardMuteEmojis');
 
 function getHTMLElement(ev: PointerEvent): HTMLElement {
 	const target = ev.currentTarget ?? ev.target;

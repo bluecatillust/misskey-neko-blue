@@ -209,7 +209,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 			</div>
 			<div v-else-if="tab === 'reactions'" :class="$style.tab_reactions">
 				<div :class="$style.reactionTabs">
-					<button v-for="reaction in Object.keys($appearNote.reactions)" :key="reaction" :class="[$style.reactionTab, { [$style.reactionTabActive]: reactionTabType === reaction }]" class="_button" @click="reactionTabType = reaction">
+					<button v-for="reaction in visibleReactionTypes" :key="reaction" :class="[$style.reactionTab, { [$style.reactionTabActive]: reactionTabType === reaction }]" class="_button" @click="reactionTabType = reaction">
 						<MkReactionIcon :reaction="reaction"/>
 						<span style="margin-left: 4px;">{{ $appearNote.reactions[reaction] }}</span>
 					</button>
@@ -239,7 +239,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { inject, provide, ref, useTemplateRef, markRaw, computed } from 'vue';
+import { inject, provide, ref, useTemplateRef, markRaw, computed, watch } from 'vue';
 import * as Misskey from 'misskey-js';
 import { useNote } from '@/composables/use-note.js';
 import { prefer } from '@/preferences.js';
@@ -252,6 +252,7 @@ import { misskeyApi } from '@/utility/misskey-api.js';
 import number from '@/filters/number.js';
 import { DI } from '@/di.js';
 import type { Keymap } from '@/utility/hotkey.js';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 // コンポーネント外部の依存関係
 import MkNoteSub from '@/components/MkNoteSub.vue';
@@ -331,6 +332,13 @@ provide(DI.mfmEmojiReactCallback, reactViaMfmEmoji);
 // MkNoteDetailed固有
 const tab = ref(props.initialTab);
 const reactionTabType = ref<string | null>(null);
+const visibleReactionTypes = computed(() => Object.keys($appearNote.reactions).filter(reaction => !isHardMuted(reaction)));
+
+watch(visibleReactionTypes, types => {
+	if (reactionTabType.value != null && !types.includes(reactionTabType.value)) {
+		reactionTabType.value = null;
+	}
+});
 
 const renotesPaginator = markRaw(new Paginator('notes/renotes', {
 	limit: 10,

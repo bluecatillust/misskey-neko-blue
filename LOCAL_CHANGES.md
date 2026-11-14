@@ -297,6 +297,58 @@ builds, changed-file lint, SPDX and locale-safety checks. Live HTTP/DB and
 production UI revalidation were SKIPPED here (no local test services and no
 production changes); the shared chat records successful server-side testing.
 
+### Completely hide muted emojis (optional hard-mute mode)
+
+Settings > Mute and block > Emoji mute adds
+`ミュートした絵文字を完全に非表示にする`. It reuses the existing mute list,
+defaults to OFF and is not synchronized between devices. OFF retains the usual
+replacement-icon behavior; ON removes matching Unicode/custom emoji elements
+instead of displaying that icon. The settings list explicitly ignores muting
+so its entries remain visible and can be unmuted.
+
+Reaction buttons and counts are filtered before display limits, including the
+viewer's own reactions. Reaction animations and detail tabs respect the filter.
+The picker filters categories, search results, history and pinned entries, and
+prevents selecting hidden entries through keyboard completion. Notifications,
+chat reaction displays and the profile ranking display also use the filter;
+this does not delete reactions, suppress notification delivery or change API
+statistics. Local custom-emoji aliases are normalized while distinct remote
+hosts remain distinct, following the existing mute rules.
+
+The follow-up sizing fix is included: visible emoji retain parent class/style
+attributes and load listeners through a single conditional root, preserving
+thumbnail sizes and the earlier wide-emoji picker behavior. Hard-muted emoji
+still render no element.
+
+This publication imports the two patches applied in the shared VPS chat:
+
+- `hard-emoji-mute-2026.11.0-neko-blue-v2.patch`, SHA-256
+  `9b8467393e4ba7edefd2e5865ca1ac5d93605242e868e5d1ae29021fcac4a644`.
+- `hard-emoji-mute-sizing-fix.patch`, SHA-256
+  `d2e96d43ba15f568f13a786fa9a9e7be4385f56a67090b03cfe5edce5f7202fd`.
+
+The 17 source/test/generated files were checked against the combined patch
+tree without further implementation changes. No backend, database schema,
+dependency or runtime-configuration changes are required. Per-note reaction
+hiding is not part of this feature.
+
+Known behavior retained from the deployed patches: profile ranking totals and
+the ranking-share text are still generated from the unfiltered statistics.
+Sharing can therefore include emoji names hidden in the ranking display; this
+is a visual filter, not removal from shared post content or stored records.
+Filtering the shared ranking text would require a separate implementation
+change and matching server deployment.
+
+Publication validation: PASS for all 242 frontend tests (including the 27
+hard-mute/sizing regressions), frontend type checking, locale regeneration,
+complete build, changed-file lint, SPDX and locale-safety checks. Live VPS UI
+revalidation is SKIPPED here; this publication does not modify the running
+server. The shared chat records successful patch application, builds and
+service startup; final post-fix visual confirmation is not recorded there.
+Supplemental test-file lint reports two BASELINE errors in the unchanged
+`setup.unit.ts` scaffolding (`prefer-const` and `padded-blocks`); neither is on
+the added preference definition. The new hard-mute test file itself passes.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.11.0.

@@ -239,6 +239,7 @@ async function menu(ev: PointerEvent) {
 }
 
 function anime() {
+	if (isEmojiMuted(props.reaction).value && prefer.r.hardMuteEmojis.value) return;
 	if (window.document.hidden || !prefer.s.animation || buttonEl.value == null) return;
 
 	const rect = buttonEl.value.getBoundingClientRect();

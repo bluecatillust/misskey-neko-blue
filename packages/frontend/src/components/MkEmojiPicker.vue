@@ -21,9 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 	<!-- FirefoxのTabフォーカスが想定外の挙動となるためtabindex="-1"を追加 https://github.com/misskey-dev/misskey/issues/10744 -->
 	<div ref="emojisEl" class="emojis" tabindex="-1">
 		<section class="result">
-			<div v-if="searchResultCustom.length > 0" class="body">
+			<div v-if="visibleSearchResultCustom.length > 0" class="body">
 				<button
-					v-for="emoji in searchResultCustom"
+					v-for="emoji in visibleSearchResultCustom"
 					:key="emoji.name"
 					class="_button item"
 					:disabled="!canReact(emoji)"
@@ -34,9 +34,9 @@ SPDX-License-Identifier: AGPL-3.0-only
 					<MkCustomEmoji class="emoji" :name="emoji.name" :fallbackToImage="true" @load="fitEmojiItem"/>
 				</button>
 			</div>
-			<div v-if="searchResultUnicode.length > 0" class="body">
+			<div v-if="visibleSearchResultUnicode.length > 0" class="body">
 				<button
-					v-for="emoji in searchResultUnicode"
+					v-for="emoji in visibleSearchResultUnicode"
 					:key="emoji.name"
 					class="_button item"
 					:title="emoji.name"
@@ -142,6 +142,7 @@ import { checkReactionPermissions } from '@/utility/check-reaction-permissions.j
 import { prefer } from '@/preferences.js';
 import { useRouter } from '@/router.js';
 import { haptic } from '@/utility/haptic.js';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 const router = useRouter();
 
@@ -174,10 +175,10 @@ const {
 const recentlyUsedEmojis = store.r.recentlyUsedEmojis;
 
 const recentlyUsedEmojisDef = computed(() => {
-	return recentlyUsedEmojis.value.map(getDef);
+	return recentlyUsedEmojis.value.filter(emoji => !isHardMuted(emoji)).map(getDef);
 });
 const pinnedEmojisDef = computed(() => {
-	return pinned.value?.map(getDef);
+	return pinned.value?.filter(emoji => !isHardMuted(emoji)).map(getDef);
 });
 
 const pinned = computed(() => props.pinnedEmojis);
@@ -187,6 +188,8 @@ const height = computed(() => emojiPickerHeight.value);
 const q = ref<string>('');
 const searchResultCustom = ref<Misskey.entities.EmojiSimple[]>([]);
 const searchResultUnicode = ref<UnicodeEmojiDef[]>([]);
+const visibleSearchResultCustom = computed(() => searchResultCustom.value.filter(emoji => !isHardMuted(`:${emoji.name}:`)));
+const visibleSearchResultUnicode = computed(() => searchResultUnicode.value.filter(emoji => !isHardMuted(emoji.char)));
 const tab = ref<'index' | 'custom' | 'unicode' | 'tags'>('index');
 
 const customEmojiFolderRoot: CustomEmojiFolderTree = { value: '', category: '', children: [] };
@@ -432,6 +435,7 @@ function fitEmojiItem(ev: Event): void {
 }
 
 function chosen(emoji: string | Misskey.entities.EmojiSimple | UnicodeEmojiDef, ev?: PointerEvent) {
+	if (isHardMuted(getKey(emoji))) return;
 	const el = ev && (ev.currentTarget ?? ev.target) as HTMLElement | null | undefined;
 	if (el && prefer.s.animation) {
 		const rect = el.getBoundingClientRect();
@@ -490,21 +494,21 @@ function done(query?: string): boolean | void {
 
 	const q2 = query.replace(/:/g, '');
 	const exactMatchCustom = customEmojisMap.get(q2);
-	if (exactMatchCustom) {
+	if (exactMatchCustom && !isHardMuted(getKey(exactMatchCustom))) {
 		chosen(exactMatchCustom);
 		return true;
 	}
 	const exactMatchUnicode = emojilist.find(emoji => emoji.char === q2 || emoji.name === q2);
-	if (exactMatchUnicode) {
+	if (exactMatchUnicode && !isHardMuted(getKey(exactMatchUnicode))) {
 		chosen(exactMatchUnicode);
 		return true;
 	}
-	if (searchResultCustom.value.length > 0) {
-		chosen(searchResultCustom.value[0]);
+	if (visibleSearchResultCustom.value.length > 0) {
+		chosen(visibleSearchResultCustom.value[0]);
 		return true;
 	}
-	if (searchResultUnicode.value.length > 0) {
-		chosen(searchResultUnicode.value[0]);
+	if (visibleSearchResultUnicode.value.length > 0) {
+		chosen(visibleSearchResultUnicode.value[0]);
 		return true;
 	}
 }

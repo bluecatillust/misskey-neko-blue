@@ -4,7 +4,8 @@ SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
-<img v-if="shouldMute" :class="$style.root" src="/client-assets/unknown.png" :alt="props.emoji" decoding="async" @pointerenter="computeTitle" @click="onClick"/>
+<template v-if="shouldHardMute"></template>
+<img v-else-if="shouldMute" :class="$style.root" src="/client-assets/unknown.png" :alt="props.emoji" decoding="async" @pointerenter="computeTitle" @click="onClick"/>
 <img v-else-if="!useOsNativeEmojis" :class="$style.root" :src="url" :alt="props.emoji" decoding="async" @pointerenter="computeTitle" @click="onClick"/>
 <span v-else :alt="props.emoji" @pointerenter="computeTitle" @click="onClick">{{ colorizedNativeEmoji }}</span>
 </template>
@@ -38,6 +39,7 @@ const url = computed(() => char2path(props.emoji));
 const colorizedNativeEmoji = computed(() => colorizeEmoji(props.emoji));
 const isMuted = checkMutedEmoji(() => props.emoji);
 const shouldMute = computed(() => isMuted.value && !props.ignoreMuted);
+const shouldHardMute = computed(() => shouldMute.value && prefer.r.hardMuteEmojis.value);
 
 // Searching from an array with 2000 items for every emoji felt like too energy-consuming, so I decided to do it lazily on pointerenter
 function computeTitle(event: PointerEvent): void {

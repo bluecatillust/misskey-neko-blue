@@ -68,6 +68,7 @@ import type { CustomEmojiFolderTree } from '@@/js/emojilist.js';
 import { i18n } from '@/i18n.js';
 import { customEmojis } from '@/custom-emojis.js';
 import MkEmojiPickerSection from '@/components/MkEmojiPicker.section.vue';
+import { isHardMuted } from '@/utility/emoji-mute.js';
 
 const props = defineProps<{
 	emojis: string[] | Ref<string[]>;
@@ -81,7 +82,7 @@ const emit = defineEmits<{
 	(ev: 'chosen', v: string, event: PointerEvent): void;
 }>();
 
-const emojis = computed(() => Array.isArray(props.emojis) ? props.emojis : props.emojis.value);
+const emojis = computed(() => (Array.isArray(props.emojis) ? props.emojis : props.emojis.value).filter(emoji => !isHardMuted(emoji)));
 
 const shown = ref(!!props.initialShown);
 

@@ -56,12 +56,18 @@ export function unmute(emoji:string) {
 
 // 絵文字が変化しうる呼び出し元 (MFM のプレビュー等) のために ref / getter も受け付ける
 export function checkMuted(emoji: MaybeRefOrGetter<string>) {
-	return computed(() => {
-		const target = toValue(emoji);
-		const isCustomEmoji = target.startsWith(':') && target.endsWith(':');
-		const emojiMuteKey = isCustomEmoji ?
-			makeEmojiMuteKey({ name: extractCustomEmojiName(target), host: extractCustomEmojiHost(target) }) :
-			target;
-		return prefer.r.mutingEmojis.value.includes(emojiMuteKey);
-	});
+	return computed(() => isMuted(toValue(emoji)));
+}
+
+function isMuted(emoji: string): boolean {
+	const isCustomEmoji = emoji.startsWith(':') && emoji.endsWith(':');
+	const emojiMuteKey = isCustomEmoji ?
+		makeEmojiMuteKey({ name: extractCustomEmojiName(emoji), host: extractCustomEmojiHost(emoji) }) :
+		emoji;
+	return prefer.r.mutingEmojis.value.includes(emojiMuteKey);
+}
+
+// 配列の絞り込みからも使えるよう、ComputedRef を作らず現在の設定を参照する。
+export function isHardMuted(emoji: string): boolean {
+	return prefer.r.hardMuteEmojis.value && isMuted(emoji);
 }
