@@ -684,6 +684,24 @@ export interface Locale extends ILocale {
      * カスタム絵文字
      */
     "customEmojis": string;
+    "_recentEmojis": {
+        /**
+         * 新着絵文字
+         */
+        "title": string;
+        /**
+         * 表示件数
+         */
+        "displayCount": string;
+        /**
+         * {count}件
+         */
+        "count": ParameterizedString<"count">;
+        /**
+         * 新着絵文字を読み込めませんでした
+         */
+        "loadFailed": string;
+    };
     /**
      * 絵文字
      */

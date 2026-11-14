@@ -32,6 +32,37 @@ describe('Endpoints', () => {
 		await api('admin/update-meta', { federation: 'all' }, alice as misskey.entities.SignupResponse);
 	}, 1000 * 60 * 2);
 
+	describe('recent local emojis', () => {
+		beforeAll(async () => {
+			const file = await uploadFile(alice);
+			assert.strictEqual(file.status, 200);
+			assert.ok(file.body);
+			for (const name of ['recent_z_first', 'recent_a_second', 'recent_m_third']) {
+				assert.strictEqual((await api('admin/emoji/add', { name, fileId: file.body.id, category: 'recent_test' }, alice)).status, 200);
+			}
+		});
+
+		test('preserves the complete category/name listing without parameters', async () => {
+			const res = await api('emojis', {});
+			assert.strictEqual(res.status, 200);
+			expect(res.body.emojis.filter(emoji => emoji.category === 'recent_test').map(emoji => emoji.name)).toEqual([
+				'recent_a_second', 'recent_m_third', 'recent_z_first',
+			]);
+		});
+
+		test('returns anonymous recent requests in registration order with the requested limit', async () => {
+			const res = await api('emojis', { sort: 'recent', limit: 2 });
+			assert.strictEqual(res.status, 200);
+			expect(res.body.emojis.map(emoji => emoji.name)).toEqual(['recent_m_third', 'recent_a_second']);
+		});
+
+		test.each([0, 201])('rejects out-of-range recent limits: %i', async limit => {
+			const res = await api('emojis', { sort: 'recent', limit });
+			assert.strictEqual(res.status, 400);
+			assert.strictEqual(castAsError(res.body).error.code, 'INVALID_PARAM');
+		});
+	});
+
 	describe('signup', () => {
 		test('不正なユーザー名でアカウントが作成できない', async () => {
 			const res = await api('signup', {

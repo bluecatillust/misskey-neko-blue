@@ -370,6 +370,50 @@ Supplemental test-file lint reports two BASELINE errors in the unchanged
 `setup.unit.ts` scaffolding (`prefer-const` and `padded-blocks`); neither is on
 the added preference definition. The new hard-mute test file itself passes.
 
+### Show recently registered custom emojis
+
+Files:
+
+- `locales/ja-JP.yml`
+- `packages/backend/src/server/api/endpoints/emojis.ts`
+- `packages/backend/test/unit/server/api/endpoints/emojis.ts`
+- `packages/backend/test/e2e/endpoints.ts`
+- `packages/frontend/src/pages/about.emojis.vue`
+- `packages/i18n/src/autogen/locale.ts`
+- `packages/misskey-js/src/autogen/endpoint.ts`
+- `packages/misskey-js/src/autogen/entities.ts`
+- `packages/misskey-js/src/autogen/types.ts`
+- `packages/misskey-js/etc/misskey-js.api.md`
+
+The custom-emoji tab on the server information page shows a recent-emoji
+section above the existing search and category listing. It reuses the existing
+emoji cards and their menus. The display-count selector offers 10, 30, 50, 100
+and 200 entries, defaults to 30, and is not persisted. The page fetches up to
+200 entries once per mount; changing the count slices that list without
+another request. Loading, empty, failure and retry states are included.
+
+The public `emojis` API accepts `sort: 'recent'` and `limit` (1–200, default
+30). Recent mode returns local emojis by descending registration ID; editing
+an existing emoji does not make it newly registered. `limit` applies only to
+recent mode. Without a sort parameter, the complete category/name-sorted
+listing remains unchanged. No database migration or dependency change is
+required.
+
+Supplemental provenance: the implementation matches the deployed
+`misskey-2026.11.0-recent-emojis.patch`, SHA-256
+`62985276497dc9055b97af37715ce3201659876afe195c8656325403b5d31724`.
+Publication also includes API report regeneration and HTTP regression cases;
+these do not change deployed application behavior. The shared chat records
+successful VPS build/startup and confirmation of the section and default
+30-entry selection. The final 200-entry visual check is not recorded there.
+
+Publication validation: PASS for 14 endpoint unit tests, all 242 frontend
+tests, frontend/backend type checking, full build, locale/API regeneration,
+changed-file lint, SPDX and locale safety. HTTP/DB tests are UNAVAILABLE:
+the local test database at `127.0.0.1:54312` could not be reached, so the
+additional HTTP regression cases are not counted as passing. Production
+revalidation is SKIPPED; this publication does not modify the running VPS.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.11.0.

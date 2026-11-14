@@ -326,6 +326,7 @@ export type EmailAddressAvailableRequest = operations['email-address___available
 export type EmailAddressAvailableResponse = operations['email-address___available']['responses']['200']['content']['application/json'];
 export type EmojiRequest = operations['emoji']['requestBody']['content']['application/json'];
 export type EmojiResponse = operations['emoji']['responses']['200']['content']['application/json'];
+export type EmojisRequest = operations['emojis']['requestBody']['content']['application/json'];
 export type EmojisResponse = operations['emojis']['responses']['200']['content']['application/json'];
 export type EndpointRequest = operations['endpoint']['requestBody']['content']['application/json'];
 export type EndpointResponse = operations['endpoint']['responses']['200']['content']['application/json'];

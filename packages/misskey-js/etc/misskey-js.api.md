@@ -1433,6 +1433,9 @@ type EmojiResponse = operations['emoji']['responses']['200']['content']['applica
 type EmojiSimple = components['schemas']['EmojiSimple'];
 
 // @public (undocumented)
+type EmojisRequest = operations['emojis']['requestBody']['content']['application/json'];
+
+// @public (undocumented)
 type EmojisResponse = operations['emojis']['responses']['200']['content']['application/json'];
 
 // @public (undocumented)
@@ -1875,6 +1878,7 @@ declare namespace entities {
         EmailAddressAvailableResponse,
         EmojiRequest,
         EmojiResponse,
+        EmojisRequest,
         EmojisResponse,
         EndpointRequest,
         EndpointResponse,

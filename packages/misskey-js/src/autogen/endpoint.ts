@@ -323,6 +323,7 @@ import type {
 	EmailAddressAvailableResponse,
 	EmojiRequest,
 	EmojiResponse,
+	EmojisRequest,
 	EmojisResponse,
 	EndpointRequest,
 	EndpointResponse,
@@ -882,7 +883,7 @@ export type Endpoints = {
 	'drive/stream': { req: DriveStreamRequest; res: DriveStreamResponse };
 	'email-address/available': { req: EmailAddressAvailableRequest; res: EmailAddressAvailableResponse };
 	'emoji': { req: EmojiRequest; res: EmojiResponse };
-	'emojis': { req: EmptyRequest; res: EmojisResponse };
+	'emojis': { req: EmojisRequest; res: EmojisResponse };
 	'endpoint': { req: EndpointRequest; res: EndpointResponse };
 	'endpoints': { req: EmptyRequest; res: EndpointsResponse };
 	'export-custom-emojis': { req: EmptyRequest; res: EmptyResponse };

@@ -21046,6 +21046,19 @@ export interface operations {
         };
     };
     emojis: {
+        requestBody: {
+            content: {
+                'application/json': {
+                    /**
+                     * @default category
+                     * @enum {string}
+                     */
+                    sort?: 'category' | 'recent';
+                    /** @default 30 */
+                    limit?: number;
+                };
+            };
+        };
         responses: {
             /** @description OK (with results) */
             200: {

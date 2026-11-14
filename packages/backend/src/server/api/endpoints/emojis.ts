@@ -37,6 +37,8 @@ export const meta = {
 export const paramDef = {
 	type: 'object',
 	properties: {
+		sort: { type: 'string', enum: ['category', 'recent'], default: 'category' },
+		limit: { type: 'integer', minimum: 1, maximum: 200, default: 30 },
 	},
 	required: [],
 } as const;
@@ -54,10 +56,9 @@ export default class extends Endpoint<typeof meta, typeof paramDef> { // eslint-
 				where: {
 					host: IsNull(),
 				},
-				order: {
-					category: 'ASC',
-					name: 'ASC',
-				},
+				// IDs are generated at registration; editing an emoji must not move it to the top.
+				order: ps.sort === 'recent' ? { id: 'DESC' } : { category: 'ASC', name: 'ASC' },
+				take: ps.sort === 'recent' ? ps.limit : undefined,
 			});
 
 			return {
