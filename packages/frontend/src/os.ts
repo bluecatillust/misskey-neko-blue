@@ -253,9 +253,10 @@ export async function popupAsyncWithDialog<T extends Component>(
 	return popup(component, props, events);
 }
 
-export function pageWindow(path: string) {
+export function pageWindow(path: string, options: { modal?: boolean; } = {}) {
 	const { dispose } = popup(MkPageWindow, {
 		initialPath: path,
+		modal: options.modal ?? false,
 	}, {
 		closed: () => dispose(),
 	});

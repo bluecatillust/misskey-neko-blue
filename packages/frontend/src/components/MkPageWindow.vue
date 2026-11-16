@@ -4,13 +4,12 @@ SPDX-License-Identifier: AGPL-3.0-only
 -->
 
 <template>
-<MkWindow
+<component
+	:is="props.modal ? MkModalWindow : MkWindow"
 	ref="windowEl"
-	:canResize="true"
-	:closeButton="true"
-	:buttonsLeft="buttonsLeft"
-	:buttonsRight="buttonsRight"
-	:contextmenu="contextmenu"
+	v-bind="props.modal ? { width: 800, height: 700 } : { canResize: true, closeButton: true, buttonsLeft, buttonsRight, contextmenu }"
+	@close="close()"
+	@esc="close()"
 	@closed="emit('closed')"
 >
 	<template #header>
@@ -24,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 		<StackingRouterView v-if="prefer.s['experimental.stackingRouterView']" :key="reloadCount.toString() + ':stacking'" :router="windowRouter"/>
 		<RouterView v-else :key="reloadCount.toString() + ':non-stacking'" :router="windowRouter"/>
 	</div>
-</MkWindow>
+</component>
 </template>
 
 <script lang="ts" setup>
@@ -33,6 +32,7 @@ import { url } from '@@/js/config.js';
 import type { PageMetadata } from '@/page.js';
 import RouterView from '@/components/global/RouterView.vue';
 import MkWindow from '@/components/MkWindow.vue';
+import MkModalWindow from '@/components/MkModalWindow.vue';
 import { popout as _popout } from '@/utility/popout.js';
 import { copyToClipboard } from '@/utility/copy-to-clipboard.js';
 import { i18n } from '@/i18n.js';
@@ -46,6 +46,7 @@ import { prefer } from '@/preferences.js';
 
 const props = defineProps<{
 	initialPath: string;
+	modal?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -55,7 +56,7 @@ const emit = defineEmits<{
 const windowRouter = createRouter(props.initialPath);
 
 const pageMetadata = ref<null | PageMetadata>(null);
-const windowEl = useTemplateRef('windowEl');
+const windowEl = useTemplateRef<InstanceType<typeof MkWindow> | InstanceType<typeof MkModalWindow>>('windowEl');
 const _history_ = ref<{ path: string; }[]>([{
 	path: windowRouter.getCurrentFullPath(),
 }]);

@@ -414,6 +414,45 @@ the local test database at `127.0.0.1:54312` could not be reached, so the
 additional HTTP regression cases are not counted as passing. Production
 revalidation is SKIPPED; this publication does not modify the running VPS.
 
+### Keep drive file details interactive inside modal dialogs
+
+Files:
+
+- `packages/frontend/src/components/MkDrive.file.vue`
+- `packages/frontend/src/components/MkPageWindow.vue`
+- `packages/frontend/src/os.ts`
+- `packages/frontend/src/utility/get-drive-file-menu.ts`
+
+Drive items inherit the existing modal context. When a file context menu is
+opened inside a modal, its file-details action opens a modal page window
+instead of an ordinary page window. This registers details with the existing
+focus-trap management: the selector behind details stays blocked, and closing
+an image preview restores interaction to details rather than leaving it inert.
+Closing details restores the selector, and closing the selector restores its
+parent dialog. This fixes the reported deck-UI watermark editor workflow.
+
+`os.pageWindow` accepts an optional modal flag, defaulting to false.
+`MkPageWindow` uses `MkModalWindow` only for modal requests, with close/Escape
+handling and popup disposal. Ordinary page windows retain their resize,
+navigation, reload and context-menu controls. The normal file-details link
+outside modal dialogs is unchanged. No backend, API, locale, dependency or
+database changes are required.
+
+Supplemental provenance: these four files match the VPS-applied
+`fix-modal-drive-file-details.patch`, SHA-256
+`6272cc8642f49f169b11185714c1f76c034c4afd09ba8ddbbe825ad592bf5998`.
+The shared chat records successful patch application, changed-file lint,
+full build and service startup. Final browser confirmation is not recorded
+there; this publication does not modify or restart the running VPS.
+
+Publication validation: PASS for frontend build and type checking, all 242
+frontend unit tests, changed-file lint, SPDX and locale safety. An isolated
+mounted-component check against this source also passes modal-context/menu
+routing, ordinary-window preservation, blocking the underlying selector,
+three image-preview close/recovery cycles and detail/selector close recovery.
+These DOM checks do not replace a live browser check of native inert behavior;
+production browser revalidation is SKIPPED for this source publication.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.11.0.

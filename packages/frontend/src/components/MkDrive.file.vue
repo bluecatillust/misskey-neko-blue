@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 </template>
 
 <script lang="ts" setup>
-import { computed, ref } from 'vue';
+import { computed, inject, ref } from 'vue';
 import * as Misskey from 'misskey-js';
 import MkDriveFileThumbnail from '@/components/MkDriveFileThumbnail.vue';
 import bytes from '@/filters/bytes.js';
@@ -46,6 +46,7 @@ import { i18n } from '@/i18n.js';
 import { $i } from '@/i.js';
 import { getDriveFileMenu } from '@/utility/get-drive-file-menu.js';
 import { setDragData } from '@/drag-and-drop.js';
+import { DI } from '@/di.js';
 
 const props = withDefaults(defineProps<{
 	file: Misskey.entities.DriveFile;
@@ -63,11 +64,12 @@ const emit = defineEmits<{
 }>();
 
 const isDragging = ref(false);
+const inModal = inject(DI.inModal, false);
 
 const title = computed(() => `${props.file.name}\n${props.file.type} ${bytes(props.file.size)}`);
 
 function onContextmenu(ev: PointerEvent) {
-	os.contextMenu(getDriveFileMenu(props.file, props.folder), ev);
+	os.contextMenu(getDriveFileMenu(props.file, props.folder, { inModal }), ev);
 }
 
 function onDragstart(ev: DragEvent) {

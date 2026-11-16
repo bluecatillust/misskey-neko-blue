@@ -99,12 +99,21 @@ async function deleteFile(file: Misskey.entities.DriveFile) {
 }
 
 /** 自分のドライブファイルを操作する際のメニュー */
-export function getDriveFileMenu(file: Misskey.entities.DriveFile, folder?: Misskey.entities.DriveFolder | null): MenuItem[] {
+export function getDriveFileMenu(
+	file: Misskey.entities.DriveFile,
+	folder?: Misskey.entities.DriveFolder | null,
+	options: { inModal?: boolean; } = {},
+): MenuItem[] {
 	const _isImage = file.type.startsWith('image/');
 
 	const menuItems: MenuItem[] = [];
 
-	menuItems.push({
+	// A regular page window is not registered with the modal focus trap.
+	menuItems.push(options.inModal ? {
+		text: i18n.ts._fileViewer.title,
+		icon: 'ti ti-info-circle',
+		action: () => os.pageWindow(`/my/drive/file/${file.id}`, { modal: true }),
+	} : {
 		type: 'link',
 		to: `/my/drive/file/${file.id}`,
 		text: i18n.ts._fileViewer.title,
