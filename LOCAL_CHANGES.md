@@ -385,9 +385,9 @@ Files:
 - `packages/misskey-js/src/autogen/types.ts`
 - `packages/misskey-js/etc/misskey-js.api.md`
 
-The custom-emoji tab on the server information page shows a recent-emoji
-section above the existing search and category listing. It reuses the existing
-emoji cards and their menus. The display-count selector offers 10, 30, 50, 100
+For signed-in users, the custom-emoji tab on the server information page shows
+a recent-emoji section above the existing search and category listing. It reuses
+the existing emoji cards and their menus. The display-count selector offers 10, 30, 50, 100
 and 200 entries, defaults to 30, and is not persisted. The page fetches up to
 200 entries once per mount; changing the count slices that list without
 another request. Loading, empty, failure and retry states are included.
@@ -413,6 +413,17 @@ changed-file lint, SPDX and locale safety. HTTP/DB tests are UNAVAILABLE:
 the local test database at `127.0.0.1:54312` could not be reached, so the
 additional HTTP regression cases are not counted as passing. Production
 revalidation is SKIPPED; this publication does not modify the running VPS.
+
+#### Show recent custom emojis only to signed-in users
+
+File: `packages/frontend/src/pages/about.emojis.vue`
+
+The page shows the recent-emoji section and requests recent entries only when
+the viewer is signed in. Guests can still use the regular emoji list and
+search. The `emojis` API remains public.
+
+This follow-up applies `misskey-recent-emojis-login-only.patch`, SHA-256
+`1288fa8af89c95a69584fbd2ea984e7953a03af5c3668a47a536bf31486fd5ef`.
 
 ### Keep drive file details interactive inside modal dialogs
 

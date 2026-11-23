@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-only
 <div class="_gaps">
 	<MkButton v-if="$i && ($i.isModerator || $i.policies.canManageCustomEmojis)" primary type="routerLink" to="/custom-emojis-manager">{{ i18n.ts.manageCustomEmojis }}</MkButton>
 
-	<section class="_gaps" :aria-label="i18n.ts._recentEmojis.title">
+	<section v-if="$i" class="_gaps" :aria-label="i18n.ts._recentEmojis.title">
 		<div :class="$style.recentHeader">
 			<h2 :class="$style.recentTitle">{{ i18n.ts._recentEmojis.title }}</h2>
 			<MkSelect v-model="recentLimit" :items="recentLimitItems" :class="$style.recentLimit">
@@ -84,7 +84,7 @@ async function loadRecentEmojis() {
 	}
 }
 
-onMounted(loadRecentEmojis);
+if ($i) onMounted(loadRecentEmojis);
 
 const q = ref('');
 const searchEmojis = ref<Misskey.entities.EmojiSimple[] | null>(null);
