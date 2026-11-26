@@ -6,8 +6,8 @@ Misskey version used by `neko.blue`.
 ## Base version
 
 - Upstream project: <https://github.com/misskey-dev/misskey>
-- Misskey version: `2026.11.0-neko.blue` (upstream `2026.11.0`)
-- Upstream commit: `dd7b4905d715d2587fa2f2cb6a88ecac8878ef0d`
+- Misskey version: `2026.11.1-neko.blue` (upstream `2026.11.1`)
+- Upstream commit: `f14aeee1bdb6a97e8f5d1ff3ecfb570cc5ad608c`
 - License: GNU Affero General Public License v3.0 (`AGPL-3.0-only`)
 
 The earlier 2026.10.1 update imported the source snapshot used for that upgrade
@@ -20,14 +20,23 @@ The new shared MFM renderer keeps the remote-to-local emoji reaction policy,
 renote payloads retain all of the viewer's reactions, and profile cropping
 continues to respect upstream's sensitive-file selection restrictions.
 
-The 2026.11.0 update imports the same update patch used for the VPS upgrade,
-based on public commit `2f3f37dcaf6e166b74f6d0a53a9ec99308ee8419`.
+The earlier 2026.11.0 update imported the same update patch used for that VPS
+upgrade, based on public commit `2f3f37dcaf6e166b74f6d0a53a9ec99308ee8419`.
 The patch SHA-256 is
 `631aeb86a8bc95b226e253edfc4c2adaa8f8227066917a1dcde01834272f3711`.
-It retains all customizations below, including the later image-classification
+It retained all customizations below, including the image-classification
 and GIF/WebP original-image changes. Upstream's recursive `withMyPollVotes`
 fix and the local multiple-reaction helpers coexist in `NoteEntityService`.
-The application reports `2026.11.0-neko.blue`; the suffix identifies this
+
+The 2026.11.1 update imports the same update patch used for the VPS upgrade,
+based on public commit `a4760f83e6b7e7bb250e72be6060ce5b9fe34dc4`.
+The patch SHA-256 is
+`4d5cd67a912ab748642c8ac8f8a4542e16ee5f597144aad505746a90a797e24f`.
+It retains all customizations below, including hard emoji mute, recent custom
+emojis, modal Drive file details, `outgoingAddressFamily` alongside upstream's
+`proxyForHpagent` in `HttpRequestService`, and `isCustomEmojiImagePath`
+alongside hard emoji mute in `MkCustomEmoji`.
+The application reports `2026.11.1-neko.blue`; the suffix identifies this
 modified distribution rather than changing the upstream base release.
 
 ## Local modifications
@@ -466,16 +475,16 @@ production browser revalidation is SKIPPED for this source publication.
 
 ## Build and configuration
 
-Follow the upstream installation and build instructions for Misskey 2026.11.0.
-The repository selects Node.js 26.13.1 and pnpm 12.17.0. Its supported Node.js
+Follow the upstream installation and build instructions for Misskey 2026.11.1.
+The repository selects Node.js 26.13.1 and pnpm 12.20.0. Its supported Node.js
 release lines are 24 (24.22.3 or newer) and 26 (26.13.1 or newer).
 Review upstream's Sentry configuration changes if that integration is enabled.
 Install dependencies from the lockfile before building this video-enabled source.
 The official `scripts/start.mjs` entry point supports direct startup with
 `NODE_ENV=production node ./scripts/start.mjs`, avoiding the package-manager
 wrapper. This publication includes that upstream script, not the VPS-specific
-systemd drop-in, Node.js installer or runtime paths. The shared update record
-reports that the VPS now uses Node.js 26.13.1 and this direct startup method.
+systemd drop-in, Node.js installer or runtime paths. The VPS now runs Node.js
+26.13.1, pnpm 12.20.0 and this direct startup method.
 Runtime configuration and secrets are deliberately not included in this
 repository. In particular, `.config/default.yml`, environment files,
 credentials, uploaded files, and database contents must remain private.
@@ -483,7 +492,28 @@ credentials, uploaded files, and database contents must remain private.
 The complete local code changes can be reviewed by comparing this source tree
 with the upstream commit shown above.
 
-### Validation of the 2026.11.0 publication
+### Validation of the 2026.11.1 publication
+
+- PASS: the imported source matches the VPS-applied update patch
+  (`4d5cd67a912ab748642c8ac8f8a4542e16ee5f597144aad505746a90a797e24f`).
+  `git diff --check` and `scripts/check-spdx.mjs` (2,506 files) pass.
+- PASS: the new migration (`1794917481157-following-request-id.js`),
+  `CHANGELOG.md` and all 11 updated non-Japanese locale files are verbatim
+  upstream 2026.11.1. No non-Japanese translations were edited manually, and
+  the existing custom migration (`1790352000000-MultipleNoteReactions.js`) is
+  untouched.
+- PASS on the VPS with Node.js 26.13.1 and pnpm 12.20.0: patch application,
+  `pnpm install --frozen-lockfile`, `pnpm build`, `package.json` and
+  `built/meta.json` reporting `2026.11.1-neko.blue`, `pnpm migrate`
+  (`FollowingRequestId1794917481157` committed), direct startup via
+  `scripts/start.mjs`, worker startup, federation/image registration and
+  public `/api/meta` returning `2026.11.1-neko.blue`.
+- SKIPPED locally: local `pnpm install`, lint, unit/e2e tests and
+  migration-schema checks (no local `pnpm` or test PostgreSQL/Redis services
+  were available in the publication environment). Production browser UI
+  revalidation is performed separately by the operator.
+
+### Historical validation of the 2026.11.0 publication
 
 - PASS with Node.js 26.13.1 and pnpm 12.17.0: frozen-lockfile installation,
   complete build, API/client regeneration, backend/frontend/shared type checks,
