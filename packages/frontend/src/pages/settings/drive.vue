@@ -156,7 +156,6 @@ SPDX-License-Identifier: AGPL-3.0-only
 						<MkPreferenceContainer k="defaultImageCompressionLevel">
 							<MkSelect
 								v-model="defaultImageCompressionLevel" :items="[
-									{ label: i18n.ts.none, value: 0 },
 									{ label: `${i18n.ts.low} (${i18n.ts._compression._quality.high}; ${i18n.ts._compression._size.large})`, value: 1 },
 									{ label: `${i18n.ts.medium} (${i18n.ts._compression._quality.medium}; ${i18n.ts._compression._size.medium})`, value: 2 },
 									{ label: `${i18n.ts.high} (${i18n.ts._compression._quality.low}; ${i18n.ts._compression._size.small})`, value: 3 },
@@ -226,6 +225,7 @@ import { selectDriveFolder } from '@/utility/drive.js';
 import MkFolder from '@/components/MkFolder.vue';
 import MkButton from '@/components/MkButton.vue';
 import { genId } from '@/utility/id.js';
+import { normalizeDefaultImageCompressionLevel } from '@/utility/image-compression.js';
 
 const $i = ensureSignin();
 
@@ -250,7 +250,13 @@ const meterStyle = computed(() => {
 
 const keepOriginalFilename = prefer.model('keepOriginalFilename');
 const defaultWatermarkPresetId = prefer.model('defaultWatermarkPresetId');
-const defaultImageCompressionLevel = prefer.model('defaultImageCompressionLevel');
+const rawDefaultImageCompressionLevel = prefer.model('defaultImageCompressionLevel');
+const defaultImageCompressionLevel = computed({
+	get: () => normalizeDefaultImageCompressionLevel(rawDefaultImageCompressionLevel.value),
+	set: (value: 1 | 2 | 3) => {
+		rawDefaultImageCompressionLevel.value = normalizeDefaultImageCompressionLevel(value);
+	},
+});
 const defaultVideoCompressionLevel = prefer.model('defaultVideoCompressionLevel');
 
 const watermarkPresetsSyncEnabled = ref(prefer.isSyncEnabled('watermarkPresets'));

@@ -13,6 +13,11 @@ export type IImage = {
 	type: string;
 };
 
+export type ICompressedImage = IImage & {
+	width?: number;
+	height?: number;
+};
+
 export type IImageStream = {
 	data: Readable;
 	ext: string | null;
@@ -36,6 +41,11 @@ export const webpDefault: WebpOptions = {
 	mixed: true,
 	effort: 2,
 	loop: 0,
+};
+
+export const forcedImageCompressionWebpOptions: WebpOptions = {
+	...webpDefault,
+	quality: 85,
 };
 
 export const avifDefault: AvifOptions = {
@@ -70,6 +80,41 @@ export class ImageProcessingService {
 			data: await result.data.toBuffer(),
 			ext: result.ext,
 			type: result.type,
+		};
+	}
+
+	/**
+	 * Convert a static image to WebP for forced compression.
+	 * Returns null when the image has multiple frames (e.g. APNG).
+	 */
+	@bindThis
+	public async convertStaticImageToWebp(
+		path: string,
+		width: number,
+		height: number,
+		options: WebpOptions = forcedImageCompressionWebpOptions,
+	): Promise<ICompressedImage | null> {
+		const img = sharp(path);
+		const metadata = await img.metadata();
+		if (metadata.pages && metadata.pages > 1) {
+			return null;
+		}
+
+		const { data, info } = await img
+			.resize(width, height, {
+				fit: 'inside',
+				withoutEnlargement: true,
+			})
+			.rotate()
+			.webp(options)
+			.toBuffer({ resolveWithObject: true });
+
+		return {
+			data,
+			ext: 'webp',
+			type: 'image/webp',
+			width: info.width,
+			height: info.height,
 		};
 	}
 

@@ -473,6 +473,56 @@ three image-preview close/recovery cycles and detail/selector close recovery.
 These DOM checks do not replace a live browser check of native inert behavior;
 production browser revalidation is SKIPPED for this source publication.
 
+### Force WebP compression for local static PNG and JPEG uploads of 500 KiB or more
+
+Files:
+
+- `packages/backend/src/core/ImageProcessingService.ts`
+- `packages/backend/src/core/DriveService.ts`
+- `packages/backend/test/unit/core/DriveService.ts`
+- `packages/frontend/src/utility/image-compression.ts`
+- `packages/frontend/src/preferences/def.ts`
+- `packages/frontend/src/pages/settings/drive.vue`
+- `packages/frontend/src/composables/use-uploader.ts`
+- `packages/frontend/test/unit/use-uploader-image.test.ts`
+
+Local uploads of static `image/png` and `image/jpeg` files at or above 500 KiB
+(512,000 bytes) are compressed automatically on both the browser uploader and
+the backend `DriveService`.
+
+- Frontend: Drive settings remove the "none" (`0`) choice from the default
+  image compression level and normalize legacy `0` preferences to medium (`2`).
+  In the uploader, static PNG/JPEG files of 500 KiB or more hide the "none"
+  option and force compression (low/medium/high), including after client-side
+  image edits, watermarks or frames. Smaller PNG/JPEG files (< 500 KiB), WebP
+  images and animated PNG (APNG) keep the per-item "none" option available.
+- Backend: `DriveService.addFile()` checks uploadable MIME types and
+  `maxFileSizeMb` first, then converts local non-link static PNG/JPEG uploads
+  of 500 KiB or more to WebP (max 1500 px on the longer edge, quality 85,
+  orientation normalized, metadata stripped) via `ImageProcessingService`.
+  System uploads (`user: null`, such as custom emoji ZIP import and remote
+  emoji copy), remote users, link files and animated images (APNG / multi-page
+  PNG) are excluded; regular local uploads including admin custom emoji UI
+  uploads follow the same rule.
+- Size safeguard: Both frontend and backend keep the original file if the
+  compressed output is not smaller than the original. Drive capacity is checked
+  against the compressed size, and temporary files are cleaned up in a
+  `finally` block. No database migration, API schema change or new dependency
+  is required.
+
+Validation: PASS on the VPS (`2026.11.1-neko.blue`, Node.js 26.13.1) for
+changed-file ESLint, backend/frontend type checks, all 16 frontend uploader
+tests (`use-uploader-image.test.ts` and `use-uploader-video.test.ts`), full
+`pnpm build`, service startup, `/api/meta` check and live browser/upload
+verification. On the initial VPS run, 8 of 9 cases in
+`packages/backend/test/unit/core/DriveService.ts` passed and the 9th failed due
+to reusing a mutated mock `FileInfo` object across two calls in the same test;
+this publication includes the `mockResolvedValueOnce` test fix (updated patch
+SHA-256 `cfc973ec1abd38405ee77bec2766c8cd7228b18819935ecbc36b4c836794f717`;
+original VPS-applied patch SHA-256
+`e2f94bdade14007caeff539cdd1ad0515e30aa4c959ccf01b9f74ffebb133d51`). Local
+`git diff --check`, SPDX check (2,509 files) and helper assertions also pass.
+
 ## Build and configuration
 
 Follow the upstream installation and build instructions for Misskey 2026.11.1.

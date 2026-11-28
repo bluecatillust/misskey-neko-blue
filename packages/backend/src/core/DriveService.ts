@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-only
  */
 
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import * as fs from 'node:fs';
 import { Inject, Injectable } from '@nestjs/common';
 import sharp from 'sharp';
@@ -44,6 +44,13 @@ import { correctFilename } from '@/misc/correct-filename.js';
 import { isMimeImage } from '@/misc/is-mime-image.js';
 import { ModerationLogService } from '@/core/ModerationLogService.js';
 import { UtilityService } from '@/core/UtilityService.js';
+
+export const FORCED_IMAGE_COMPRESSION_MIN_BYTES = 500 * 1024;
+export const FORCED_IMAGE_COMPRESSION_MAX_DIMENSION = 1500;
+export const FORCED_IMAGE_COMPRESSION_MIME_TYPES = new Set([
+	'image/png',
+	'image/jpeg',
+]);
 
 type AddFileArgs = {
 	/** User who wish to add file */
@@ -488,11 +495,13 @@ export class DriveService {
 		//	throw new IdentifiableError('282f77bf-5816-4f72-9264-aa14d8261a21', 'Detected as porn.');
 		//}
 
+		const validatedBaseName = (name && this.driveFileEntityService.validateFileName(name)) ? name : 'untitled';
+
 		// detect name
-		const detectedName = correctFilename(
+		let detectedName = correctFilename(
 			// DriveFile.nameは256文字, validateFileNameは200文字制限であるため、
 			// extを付加してデータベースの文字数制限に当たることはまずない
-			(name && this.driveFileEntityService.validateFileName(name)) ? name : 'untitled',
+			validatedBaseName,
 			ext ?? info.type.ext,
 		);
 
@@ -506,8 +515,16 @@ export class DriveService {
 			throw new IdentifiableError('b9adda75-abe9-4c6d-bf12-b5575833960d', 'No such folder.');
 		}
 
-		if (user && !force) {
-		// Check if there is a file with the same hash
+		const isLocalUser = user != null ? this.userEntityService.isLocalUser(user) : false;
+		const shouldAttemptForcedCompression = user != null
+			&& !isLink
+			&& isLocalUser
+			&& info.size >= FORCED_IMAGE_COMPRESSION_MIN_BYTES
+			&& FORCED_IMAGE_COMPRESSION_MIME_TYPES.has(info.type.mime);
+
+		const findMatchedByHash = async (): Promise<MiDriveFile | null> => {
+			if (!user || force) return null;
+			// Check if there is a file with the same hash
 			const matched = await this.driveFilesRepository.findOneBy({
 				md5: info.md5,
 				userId: user.id,
@@ -523,16 +540,23 @@ export class DriveService {
 				}
 				return matched;
 			}
+			return null;
+		};
+
+		if (!shouldAttemptForcedCompression) {
+			const matched = await findMatchedByHash();
+			if (matched) return matched;
 		}
 
 		this.registerLogger.debug(`ADD DRIVE FILE: user ${user?.id ?? 'not set'}, name ${detectedName}, tmp ${path}`);
 
-		//#region Check drive usage and mime type
+		//#region Check uploadable file types and max file size before forced compression
+		let nonModeratorPolicies: Awaited<ReturnType<RoleService['getUserPolicies']>> | null = null;
 		if (user != null && !isLink) {
-			const isLocalUser = this.userEntityService.isLocalUser(user);
 			const isModerator = isLocalUser ? await this.roleService.isModerator(user) : false;
 			if (!isModerator) {
 				const policies = await this.roleService.getUserPolicies(user.id);
+				nonModeratorPolicies = policies;
 
 				const allowedMimeTypes = policies.uploadableFileTypes;
 				const isAllowed = allowedMimeTypes.some((mimeType) => {
@@ -544,7 +568,6 @@ export class DriveService {
 					throw new IdentifiableError('bd71c601-f9b0-4808-9137-a330647ced9b', `Unallowed file type: ${info.type.mime}`);
 				}
 
-				const driveCapacity = 1024 * 1024 * policies.driveCapacityMb;
 				const maxFileSize = 1024 * 1024 * policies.maxFileSizeMb;
 
 				if (maxFileSize < info.size) {
@@ -552,7 +575,52 @@ export class DriveService {
 						throw new IdentifiableError('f9e4e5f3-4df4-40b5-b400-f236945f7073', 'Max file size exceeded.');
 					}
 				}
+			}
+		}
+		//#endregion
 
+		let targetPath = path;
+		let cleanupCompressedTemp: (() => void) | null = null;
+
+		try {
+			if (shouldAttemptForcedCompression) {
+				try {
+					const compressed = await this.imageProcessingService.convertStaticImageToWebp(
+						path,
+						FORCED_IMAGE_COMPRESSION_MAX_DIMENSION,
+						FORCED_IMAGE_COMPRESSION_MAX_DIMENSION,
+					);
+
+					if (compressed != null && compressed.data.length < info.size) {
+						const [tempPath, cleanup] = await createTemp();
+						cleanupCompressedTemp = cleanup;
+						await fs.promises.writeFile(tempPath, compressed.data);
+						targetPath = tempPath;
+						info.size = compressed.data.length;
+						info.md5 = createHash('md5').update(compressed.data).digest('hex');
+						info.type = {
+							mime: compressed.type,
+							ext: compressed.ext,
+						};
+						if (compressed.width != null && compressed.height != null) {
+							info.width = compressed.width;
+							info.height = compressed.height;
+						}
+						info.orientation = undefined;
+						detectedName = correctFilename(validatedBaseName, info.type.ext);
+						this.registerLogger.info(`forced image compression applied: ${detectedName} (${info.size} bytes)`);
+					}
+				} catch (err) {
+					this.registerLogger.warn('forced image compression failed; keeping original file', err as Error);
+				}
+
+				const matched = await findMatchedByHash();
+				if (matched) return matched;
+			}
+
+			//#region Check drive usage
+			if (user != null && !isLink && nonModeratorPolicies != null) {
+				const driveCapacity = 1024 * 1024 * nonModeratorPolicies.driveCapacityMb;
 				const usage = await this.driveFileEntityService.calcDriveUsageOf(user);
 
 				this.registerLogger.debug('drive capacity override applied');
@@ -566,112 +634,114 @@ export class DriveService {
 					await this.expireOldFile(await this.usersRepository.findOneByOrFail({ id: user.id }) as MiRemoteUser, driveCapacity - info.size);
 				}
 			}
-		}
-		//#endregion
+			//#endregion
 
-		const properties: {
-			width?: number;
-			height?: number;
-			orientation?: number;
-		} = {};
+			const properties: {
+				width?: number;
+				height?: number;
+				orientation?: number;
+			} = {};
 
-		if (info.width) {
-			properties['width'] = info.width;
-			properties['height'] = info.height;
-		}
-		if (info.orientation != null) {
-			properties['orientation'] = info.orientation;
-		}
-
-		const profile = user ? await this.userProfilesRepository.findOneBy({ userId: user.id }) : null;
-
-		let file = new MiDriveFile();
-		file.id = this.idService.gen();
-		file.userId = user ? user.id : null;
-		file.userHost = user ? user.host : null;
-		file.folderId = folder !== null ? folder.id : null;
-		file.comment = comment;
-		file.properties = properties;
-		file.blurhash = info.blurhash ?? null;
-		file.isLink = isLink;
-		file.requestIp = requestIp;
-		file.requestHeaders = requestHeaders;
-		file.maybeSensitive = info.sensitive;
-		file.maybePorn = info.porn;
-		file.isSensitive = user
-			? this.userEntityService.isLocalUser(user) && profile!.alwaysMarkNsfw ? true :
-			sensitive ?? false
-			: false;
-
-		if (user && this.utilityService.isMediaSilencedHost(this.meta.mediaSilencedHosts, user.host)) file.isSensitive = true;
-		if (info.sensitive && profile!.autoSensitive) file.isSensitive = true;
-		if (info.sensitive && this.meta.setSensitiveFlagAutomatically) file.isSensitive = true;
-		if (userRoleNSFW) file.isSensitive = true;
-
-		if (url !== null) {
-			file.src = url;
-
-			if (isLink) {
-				file.url = url;
-				// ローカルプロキシ用
-				file.accessKey = randomUUID();
-				file.thumbnailAccessKey = 'thumbnail-' + randomUUID();
-				file.webpublicAccessKey = 'webpublic-' + randomUUID();
+			if (info.width) {
+				properties['width'] = info.width;
+				properties['height'] = info.height;
 			}
-		}
+			if (info.orientation != null) {
+				properties['orientation'] = info.orientation;
+			}
 
-		if (uri !== null) {
-			file.uri = uri;
-		}
+			const profile = user ? await this.userProfilesRepository.findOneBy({ userId: user.id }) : null;
 
-		if (isLink) {
-			try {
-				file.size = 0;
-				file.md5 = info.md5;
-				file.name = detectedName;
-				file.type = info.type.mime;
-				file.storedInternal = false;
+			let file = new MiDriveFile();
+			file.id = this.idService.gen();
+			file.userId = user ? user.id : null;
+			file.userHost = user ? user.host : null;
+			file.folderId = folder !== null ? folder.id : null;
+			file.comment = comment;
+			file.properties = properties;
+			file.blurhash = info.blurhash ?? null;
+			file.isLink = isLink;
+			file.requestIp = requestIp;
+			file.requestHeaders = requestHeaders;
+			file.maybeSensitive = info.sensitive;
+			file.maybePorn = info.porn;
+			file.isSensitive = user
+				? isLocalUser && profile!.alwaysMarkNsfw ? true :
+				sensitive ?? false
+				: false;
 
-				file = await this.driveFilesRepository.insertOne(file);
-			} catch (err) {
-			// duplicate key error (when already registered)
-				if (isDuplicateKeyValueError(err)) {
-					this.registerLogger.info(`already registered ${file.uri}`);
+			if (user && this.utilityService.isMediaSilencedHost(this.meta.mediaSilencedHosts, user.host)) file.isSensitive = true;
+			if (info.sensitive && profile!.autoSensitive) file.isSensitive = true;
+			if (info.sensitive && this.meta.setSensitiveFlagAutomatically) file.isSensitive = true;
+			if (userRoleNSFW) file.isSensitive = true;
 
-					file = await this.driveFilesRepository.findOneBy({
-						uri: file.uri!,
-						userId: user ? user.id : IsNull(),
-					}) as MiDriveFile;
-				} else {
-					this.registerLogger.error(err as Error);
-					throw err;
+			if (url !== null) {
+				file.src = url;
+
+				if (isLink) {
+					file.url = url;
+					// ローカルプロキシ用
+					file.accessKey = randomUUID();
+					file.thumbnailAccessKey = 'thumbnail-' + randomUUID();
+					file.webpublicAccessKey = 'webpublic-' + randomUUID();
 				}
 			}
-		} else {
-			file = await (this.save(file, path, detectedName, info.type.mime, info.md5, info.size));
-		}
 
-		this.registerLogger.succ(`drive file has been created ${file.id}`);
-
-		if (user) {
-			this.driveFileEntityService.pack(file, { self: true }).then(packedFile => {
-				// Publish driveFileCreated event
-				this.globalEventService.publishMainStream(user.id, 'driveFileCreated', packedFile);
-				this.globalEventService.publishDriveStream(user.id, 'fileCreated', packedFile);
-			});
-		}
-
-		this.driveChart.update(file, true);
-		if (file.userHost == null) {
-			// ローカルユーザーのみ
-			this.perUserDriveChart.update(file, true);
-		} else {
-			if (this.meta.enableChartsForFederatedInstances) {
-				this.instanceChart.updateDrive(file, true);
+			if (uri !== null) {
+				file.uri = uri;
 			}
-		}
 
-		return file;
+			if (isLink) {
+				try {
+					file.size = 0;
+					file.md5 = info.md5;
+					file.name = detectedName;
+					file.type = info.type.mime;
+					file.storedInternal = false;
+
+					file = await this.driveFilesRepository.insertOne(file);
+				} catch (err) {
+				// duplicate key error (when already registered)
+					if (isDuplicateKeyValueError(err)) {
+						this.registerLogger.info(`already registered ${file.uri}`);
+
+						file = await this.driveFilesRepository.findOneBy({
+							uri: file.uri!,
+							userId: user ? user.id : IsNull(),
+						}) as MiDriveFile;
+					} else {
+						this.registerLogger.error(err as Error);
+						throw err;
+					}
+				}
+			} else {
+				file = await (this.save(file, targetPath, detectedName, info.type.mime, info.md5, info.size));
+			}
+
+			this.registerLogger.succ(`drive file has been created ${file.id}`);
+
+			if (user) {
+				this.driveFileEntityService.pack(file, { self: true }).then(packedFile => {
+					// Publish driveFileCreated event
+					this.globalEventService.publishMainStream(user.id, 'driveFileCreated', packedFile);
+					this.globalEventService.publishDriveStream(user.id, 'fileCreated', packedFile);
+				});
+			}
+
+			this.driveChart.update(file, true);
+			if (file.userHost == null) {
+				// ローカルユーザーのみ
+				this.perUserDriveChart.update(file, true);
+			} else {
+				if (this.meta.enableChartsForFederatedInstances) {
+					this.instanceChart.updateDrive(file, true);
+				}
+			}
+
+			return file;
+		} finally {
+			cleanupCompressedTemp?.();
+		}
 	}
 
 	@bindThis

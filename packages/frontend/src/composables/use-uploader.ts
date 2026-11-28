@@ -22,6 +22,11 @@ import { isPreviewable, getType } from '@/utility/lightbox.js';
 import { ensureSignin } from '@/i.js';
 import { instance } from '@/instance.js';
 import { CompatibleVideoError, convertCompatibleVideo, isVideoFile } from '@/utility/compatible-video.js';
+import {
+	isForcedImageCompressionTarget,
+	normalizeDefaultImageCompressionLevel,
+	resolveImageCompressionLevel,
+} from '@/utility/image-compression.js';
 
 export type UploaderFeatures = {
 	imageEditing?: boolean;
@@ -71,6 +76,8 @@ export type UploaderItem = {
 	uploadFailed: boolean;
 	aborted: boolean;
 	compressionLevel: 0 | 1 | 2 | 3;
+	isAnimatedImage?: boolean;
+	forcedImageCompression?: boolean;
 	videoMode?: 'compatible' | 'legacy';
 	preprocessError?: string | null;
 	compressedSize?: number | null;
@@ -170,7 +177,13 @@ export function useUploader(options: {
 			uploadFailed: false,
 			videoMode: isVideoFile(file) ? 'compatible' : undefined,
 			preprocessError: null,
-			compressionLevel: IMAGE_EDITING_SUPPORTED_TYPES.includes(file.type) ? prefer.s.defaultImageCompressionLevel : VIDEO_COMPRESSION_SUPPORTED_TYPES.includes(file.type) ? prefer.s.defaultVideoCompressionLevel : 0,
+			compressionLevel: IMAGE_EDITING_SUPPORTED_TYPES.includes(file.type)
+				? normalizeDefaultImageCompressionLevel(prefer.s.defaultImageCompressionLevel)
+				: VIDEO_COMPRESSION_SUPPORTED_TYPES.includes(file.type)
+					? prefer.s.defaultVideoCompressionLevel
+					: 0,
+			isAnimatedImage: false,
+			forcedImageCompression: isForcedImageCompressionTarget(file, false),
 			watermarkPreset,
 			watermarkLayers: watermarkPreset?.layers ?? null,
 			imageFrameParams: null,
@@ -312,6 +325,8 @@ export function useUploader(options: {
 						items.value.splice(items.value.indexOf(item), 1, {
 							...item,
 							file: markRaw(cropped),
+							isAnimatedImage: false,
+							forcedImageCompression: isForcedImageCompressionTarget(cropped, false),
 							thumbnail: THUMBNAIL_SUPPORTED_TYPES.includes(cropped.type) ? newObjectUrl : null,
 							objectUrl: newObjectUrl,
 						});
@@ -338,6 +353,8 @@ export function useUploader(options: {
 								items.value.splice(items.value.indexOf(item), 1, {
 									...item,
 									file: markRaw(file),
+									isAnimatedImage: false,
+									forcedImageCompression: isForcedImageCompressionTarget(file, false),
 									thumbnail: THUMBNAIL_SUPPORTED_TYPES.includes(file.type) ? newObjectUrl : null,
 									objectUrl: newObjectUrl,
 								});
@@ -508,7 +525,10 @@ export function useUploader(options: {
 			!item.uploading &&
 			!item.uploaded
 		) {
+			const forceImageCompression = !isVideo(item) && (item.forcedImageCompression ?? isForcedImageCompressionTarget(item.file, item.isAnimatedImage === true));
+
 			function changeCompressionLevel(level: 0 | 1 | 2 | 3) {
+				if (forceImageCompression && level === 0) return;
 				item.compressionLevel = level;
 				preprocess(item).then(() => {
 					triggerRef(items);
@@ -533,29 +553,32 @@ export function useUploader(options: {
 					return text;
 				}),
 				type: 'parent',
-				children: [{
-					type: 'radioOption',
-					text: i18n.ts.none,
-					active: computed(() => item.compressionLevel === 0 || item.compressionLevel == null),
-					action: () => changeCompressionLevel(0),
-				}, {
-					type: 'divider',
-				}, {
-					type: 'radioOption',
-					text: i18n.ts.low,
-					active: computed(() => item.compressionLevel === 1),
-					action: () => changeCompressionLevel(1),
-				}, {
-					type: 'radioOption',
-					text: i18n.ts.medium,
-					active: computed(() => item.compressionLevel === 2),
-					action: () => changeCompressionLevel(2),
-				}, {
-					type: 'radioOption',
-					text: i18n.ts.high,
-					active: computed(() => item.compressionLevel === 3),
-					action: () => changeCompressionLevel(3),
-				}],
+				children: [
+					...(!forceImageCompression ? [{
+						type: 'radioOption' as const,
+						text: i18n.ts.none,
+						active: computed(() => item.compressionLevel === 0 || item.compressionLevel == null),
+						action: () => changeCompressionLevel(0),
+					}, {
+						type: 'divider' as const,
+					}] : []),
+					{
+						type: 'radioOption',
+						text: i18n.ts.low,
+						active: computed(() => item.compressionLevel === 1),
+						action: () => changeCompressionLevel(1),
+					}, {
+						type: 'radioOption',
+						text: i18n.ts.medium,
+						active: computed(() => item.compressionLevel === 2),
+						action: () => changeCompressionLevel(2),
+					}, {
+						type: 'radioOption',
+						text: i18n.ts.high,
+						active: computed(() => item.compressionLevel === 3),
+						action: () => changeCompressionLevel(3),
+					},
+				],
 			});
 		}
 
@@ -804,8 +827,21 @@ export function useUploader(options: {
 			});
 		}
 
-		const compressionSettings = getCompressionSettings(item.compressionLevel);
-		const needsCompress = item.compressionLevel !== 0 && compressionSettings && IMAGE_EDITING_SUPPORTED_TYPES.includes(preprocessedFile.type) && !(await isAnimated(preprocessedFile));
+		const animated = await isAnimated(preprocessedFile);
+		item.isAnimatedImage = animated;
+		item.forcedImageCompression = isForcedImageCompressionTarget(preprocessedFile, animated);
+		const effectiveCompressionLevel = resolveImageCompressionLevel(
+			item.compressionLevel,
+			preprocessedFile,
+			animated,
+			prefer.s.defaultImageCompressionLevel,
+		);
+		if (effectiveCompressionLevel !== item.compressionLevel) {
+			item.compressionLevel = effectiveCompressionLevel;
+		}
+
+		const compressionSettings = getCompressionSettings(effectiveCompressionLevel);
+		const needsCompress = effectiveCompressionLevel !== 0 && compressionSettings && IMAGE_EDITING_SUPPORTED_TYPES.includes(preprocessedFile.type) && !animated;
 
 		if (needsCompress) {
 			const config = {
